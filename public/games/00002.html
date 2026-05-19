@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Cookie Clicker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: 'Fredoka One', cursive;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      padding: 8px;
+      gap: 8px;
+    }
+
+    #game-area {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      width: 100%;
+    }
+
+    #count {
+      font-size: clamp(2rem, 8vw, 4rem);
+      color: #ffcc00;
+      text-shadow: 0 0 30px rgba(255, 204, 0, 0.5);
+    }
+
+    #count-label {
+      font-size: clamp(0.9rem, 3vw, 1.2rem);
+      color: #666;
+      margin-top: -10px;
+      letter-spacing: 1px;
+    }
+
+    #cookie-btn {
+      font-size: clamp(5rem, 20vw, 10rem);
+      background: none;
+      border: none;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      transition: transform 0.08s ease-out;
+      filter: drop-shadow(0 0 20px rgba(255, 180, 0, 0.3));
+    }
+
+    #cookie-btn:active { transform: scale(0.82); }
+
+    @keyframes pop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(0.82); }
+      70%  { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    #cookie-btn.popping { animation: pop 0.2s ease-out forwards; }
+
+    #per-click {
+      font-size: 1rem;
+      color: #e94560;
+      opacity: 0;
+      transform: translateY(0);
+      transition: opacity 0.1s;
+      pointer-events: none;
+    }
+
+    #per-click.show {
+      animation: float-up 0.8s ease-out forwards;
+    }
+
+    @keyframes float-up {
+      0%   { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-40px); }
+    }
+  </style>
+</head>
+<body data-game="00002">
+
+  <div id="game-area">
+    <div id="count">0</div>
+    <div id="count-label">cookies baked</div>
+    <button id="cookie-btn">🍪</button>
+    <div id="per-click">+1</div>
+  </div>
+
+  <script src="/shared/nav.js"></script>
+  <script>
+    const countEl = document.getElementById('count');
+    const cookieBtn = document.getElementById('cookie-btn');
+    const perClick = document.getElementById('per-click');
+
+    function formatCount(n) {
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+      if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+      return n.toLocaleString();
+    }
+
+    fetch('/api/cookie')
+      .then(r => r.json())
+      .then(data => { countEl.textContent = formatCount(data.count); });
+
+    cookieBtn.addEventListener('click', () => {
+      // Pop animation
+      cookieBtn.classList.remove('popping');
+      void cookieBtn.offsetWidth;
+      cookieBtn.classList.add('popping');
+
+      // Floating +1
+      perClick.classList.remove('show');
+      void perClick.offsetWidth;
+      perClick.classList.add('show');
+
+      fetch('/api/cookie/click', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => { countEl.textContent = formatCount(data.count); });
+    });
+  </script>
+</body>
+</html>
