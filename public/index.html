@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Colour Together</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: 'Fredoka One', cursive;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      padding: 8px;
+      gap: 8px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      color: #e94560;
+      text-shadow: 0 0 20px rgba(233,69,96,0.5);
+      letter-spacing: 2px;
+    }
+
+    #status {
+      font-size: 0.85rem;
+      padding: 4px 14px;
+      border-radius: 20px;
+      background: #333;
+    }
+    #status.connected { background: #1a5c1a; color: #6dff6d; }
+    #status.disconnected { background: #5c1a1a; color: #ff6d6d; }
+
+    #palette {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      max-width: 700px;
+      width: 100%;
+    }
+
+    .swatch {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: transform 0.1s, border-color 0.1s;
+    }
+    .swatch:hover { transform: scale(1.15); }
+    .swatch.selected {
+      border-color: white;
+      transform: scale(1.2);
+      box-shadow: 0 0 12px rgba(255,255,255,0.6);
+    }
+
+    #canvas-wrapper {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      max-width: 900px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    canvas {
+      border: 3px solid #444;
+      border-radius: 8px;
+      cursor: crosshair;
+      touch-action: none;
+      max-width: 100%;
+    }
+
+    #controls {
+      display: flex;
+      gap: 12px;
+    }
+
+    button {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1rem;
+      padding: 6px 20px;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      background: #e94560;
+      color: white;
+      transition: transform 0.1s, background 0.1s;
+    }
+    button:hover { background: #c73652; transform: scale(1.05); }
+    button:active { transform: scale(0.97); }
+
+    .size-btn {
+      font-family: 'Fredoka One', cursive;
+      font-size: 0.85rem;
+      padding: 6px 14px;
+      border: 2px solid #555;
+      border-radius: 20px;
+      cursor: pointer;
+      background: transparent;
+      color: #aaa;
+      transition: transform 0.1s, background 0.1s, color 0.1s;
+    }
+    .size-btn:hover { background: #333; color: white; }
+    .size-btn.selected { background: #e94560; color: white; border-color: #e94560; }
+
+    .swatch-rainbow {
+      background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+      position: relative;
+    }
+    .swatch-rainbow::after {
+      content: '+';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: white;
+      text-shadow: 0 0 4px #000;
+      pointer-events: none;
+    }
+    #colorPicker { display: none; }
+  </style>
+</head>
+<body>
+
+  <h1>🎨 Colour Together</h1>
+  <div id="status" class="disconnected">Connecting...</div>
+
+  <div id="palette"></div>
+  <input type="color" id="colorPicker" value="#ff0000">
+
+  <div id="canvas-wrapper">
+    <canvas id="grid"></canvas>
+  </div>
+
+  <div id="controls">
+    <button class="size-btn selected" data-size="1">1×1</button>
+    <button class="size-btn" data-size="2">2×2</button>
+    <button class="size-btn" data-size="4">4×4</button>
+    <button id="clearBtn">Clear Grid</button>
+  </div>
+
+  <script>
+    const COLS = 30;
+    const ROWS = 20;
+    const TOTAL = COLS * ROWS;
+
+    const COLORS = [
+      '#ffffff', '#000000', '#ff0000', '#ff6600',
+      '#ffff00', '#00cc00', '#0066ff', '#9900cc',
+      '#ff66cc', '#663300', '#999999', '#00cccc',
+      '#ffcc00', '#006600', '#003399', '#ff9999'
+    ];
+
+    let selectedColor = '#ff0000';
+    let brushSize = 1;
+    let grid = new Array(TOTAL).fill('#ffffff');
+    let cellSize = 28;
+    let isPointerDown = false;
+
+    // --- Canvas setup ---
+    const canvas = document.getElementById('grid');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+      const wrapper = document.getElementById('canvas-wrapper');
+      const maxW = Math.min(wrapper.clientWidth || window.innerWidth - 24, 900);
+      const maxH = wrapper.clientHeight || (window.innerHeight - 170);
+      const sizeByW = Math.floor(maxW / COLS);
+      const sizeByH = Math.floor(maxH / ROWS);
+      cellSize = Math.max(1, Math.min(sizeByW, sizeByH));
+      canvas.width = cellSize * COLS;
+      canvas.height = cellSize * ROWS;
+      drawGrid();
+    }
+
+    function drawGrid() {
+      for (let i = 0; i < TOTAL; i++) {
+        drawCell(i, grid[i]);
+      }
+    }
+
+    function drawCell(index, color) {
+      const col = index % COLS;
+      const row = Math.floor(index / COLS);
+      const x = col * cellSize;
+      const y = row * cellSize;
+      ctx.fillStyle = color;
+      ctx.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
+      ctx.strokeStyle = '#cccccc';
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
+    }
+
+    function getCellIndex(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (clientX - rect.left) * scaleX;
+      const y = (clientY - rect.top) * scaleY;
+      const col = Math.floor(x / cellSize);
+      const row = Math.floor(y / cellSize);
+      if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return -1;
+      return row * COLS + col;
+    }
+
+    function paintCell(index) {
+      if (index < 0 || index >= TOTAL) return;
+      if (grid[index] === selectedColor) return;
+      grid[index] = selectedColor;
+      drawCell(index, selectedColor);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'paint', index: index, color: selectedColor }));
+      }
+    }
+
+    function paintBrush(centerIndex) {
+      if (centerIndex < 0) return;
+      const centerCol = centerIndex % COLS;
+      const centerRow = Math.floor(centerIndex / COLS);
+      const half = Math.floor((brushSize - 1) / 2);
+      for (let dr = -half; dr < brushSize - half; dr++) {
+        for (let dc = -half; dc < brushSize - half; dc++) {
+          const r = centerRow + dr;
+          const c = centerCol + dc;
+          if (r < 0 || r >= ROWS || c < 0 || c >= COLS) continue;
+          paintCell(r * COLS + c);
+        }
+      }
+    }
+
+    // Mouse events
+    canvas.addEventListener('mousedown', (e) => {
+      isPointerDown = true;
+      paintBrush(getCellIndex(e.clientX, e.clientY));
+    });
+    canvas.addEventListener('mousemove', (e) => {
+      if (isPointerDown) paintBrush(getCellIndex(e.clientX, e.clientY));
+    });
+    canvas.addEventListener('mouseup', () => { isPointerDown = false; });
+    canvas.addEventListener('mouseleave', () => { isPointerDown = false; });
+
+    // Touch events
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      isPointerDown = true;
+      const t = e.touches[0];
+      paintBrush(getCellIndex(t.clientX, t.clientY));
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      paintBrush(getCellIndex(t.clientX, t.clientY));
+    }, { passive: false });
+    canvas.addEventListener('touchend', () => { isPointerDown = false; });
+
+    // --- Palette ---
+    const paletteEl = document.getElementById('palette');
+    const colorPicker = document.getElementById('colorPicker');
+
+    function selectSwatch(swatchEl, color) {
+      document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+      swatchEl.classList.add('selected');
+      selectedColor = color;
+    }
+
+    COLORS.forEach(color => {
+      const swatch = document.createElement('div');
+      swatch.className = 'swatch' + (color === selectedColor ? ' selected' : '');
+      swatch.style.background = color;
+      if (color === '#ffffff') swatch.style.border = '3px solid #999';
+      swatch.addEventListener('click', () => selectSwatch(swatch, color));
+      paletteEl.appendChild(swatch);
+    });
+
+    // Rainbow / custom colour swatch
+    const rainbowSwatch = document.createElement('div');
+    rainbowSwatch.className = 'swatch swatch-rainbow';
+    rainbowSwatch.title = 'Custom colour';
+    rainbowSwatch.addEventListener('click', () => colorPicker.click());
+    paletteEl.appendChild(rainbowSwatch);
+
+    colorPicker.addEventListener('input', () => {
+      selectSwatch(rainbowSwatch, colorPicker.value);
+    });
+
+    // --- Brush size ---
+    document.querySelectorAll('.size-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        brushSize = parseInt(btn.dataset.size);
+      });
+    });
+
+    // --- Clear button ---
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        if (confirm('Clear the whole grid for everyone?')) {
+          ws.send(JSON.stringify({ type: 'clear' }));
+        }
+      }
+    });
+
+    // --- WebSocket ---
+    const statusEl = document.getElementById('status');
+    let ws;
+
+    function connect() {
+      const wsURL = `ws://${window.location.host}`;
+      ws = new WebSocket(wsURL);
+
+      ws.onopen = () => {
+        statusEl.textContent = 'Connected ✓';
+        statusEl.className = 'connected';
+      };
+
+      ws.onclose = () => {
+        statusEl.textContent = 'Disconnected — retrying...';
+        statusEl.className = 'disconnected';
+        setTimeout(connect, 3000);
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'init') {
+          grid = data.grid;
+          drawGrid();
+        }
+        if (data.type === 'paint') {
+          grid[data.index] = data.color;
+          drawCell(data.index, data.color);
+        }
+      };
+    }
+
+    // --- Init ---
+    window.addEventListener('resize', resize);
+    requestAnimationFrame(resize);
+    connect();
+  </script>
+</body>
+</html>
