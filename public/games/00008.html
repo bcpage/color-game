@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Voice Notes</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: 'Fredoka One', cursive;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      padding: 8px;
+      gap: 8px;
+    }
+
+    /* ── Name bar ── */
+    #name-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    #name-bar label { font-size: 1rem; color: #aaa; white-space: nowrap; }
+    #name-input {
+      flex: 1;
+      font-family: 'Fredoka One', cursive;
+      font-size: 1rem;
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 2px solid #555;
+      background: #252545;
+      color: white;
+      outline: none;
+      transition: border-color 0.15s;
+      min-width: 0;
+    }
+    #name-input:focus { border-color: #e94560; }
+
+    /* ── Record controls ── */
+    #rec-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+      padding: 8px 0;
+    }
+
+    #rec-btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      border: 4px solid #e94560;
+      background: transparent;
+      color: #e94560;
+      font-size: 2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.1s, box-shadow 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    #rec-btn:hover { background: rgba(233,69,96,0.12); }
+    #rec-btn:active { transform: scale(0.92); }
+    #rec-btn.recording {
+      background: #e94560;
+      color: white;
+      box-shadow: 0 0 0 0 rgba(233,69,96,0.7);
+      animation: pulse-ring 1.2s ease-out infinite;
+    }
+
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0   rgba(233,69,96,0.7); }
+      70%  { box-shadow: 0 0 0 18px rgba(233,69,96,0); }
+      100% { box-shadow: 0 0 0 0   rgba(233,69,96,0); }
+    }
+
+    #rec-timer {
+      font-size: 1.3rem;
+      color: #e94560;
+      min-height: 1.6em;
+      letter-spacing: 2px;
+    }
+    #rec-status {
+      font-size: 0.85rem;
+      color: #555;
+      min-height: 1.2em;
+      text-align: center;
+    }
+    #rec-status.err { color: #e94560; }
+    #rec-status.ok  { color: #44cc88; }
+
+    /* ── Clip list ── */
+    #clips-wrap {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 2px;
+    }
+    #clips-wrap::-webkit-scrollbar { width: 6px; }
+    #clips-wrap::-webkit-scrollbar-track { background: transparent; }
+    #clips-wrap::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+
+    #empty-hint {
+      text-align: center;
+      color: #444;
+      font-size: 1rem;
+      margin: auto;
+    }
+
+    .clip {
+      background: #252545;
+      border-radius: 14px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      animation: slide-in 0.18s ease-out;
+    }
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .clip-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+      color: white;
+    }
+
+    .clip-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .clip-name {
+      font-size: 1rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .clip-meta {
+      font-size: 0.72rem;
+      color: #666;
+      margin-top: 2px;
+    }
+
+    /* Progress bar shown while playing */
+    .clip-progress {
+      height: 3px;
+      background: #333;
+      border-radius: 2px;
+      margin-top: 6px;
+      overflow: hidden;
+      display: none;
+    }
+    .clip-progress.visible { display: block; }
+    .clip-progress-fill {
+      height: 100%;
+      background: #4488ff;
+      width: 0%;
+      transition: width 0.25s linear;
+      border-radius: 2px;
+    }
+
+    .clip-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    .clip-play, .clip-del {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1.1rem;
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .clip-play {
+      background: #1a1a2e;
+      border-color: #4488ff;
+      color: #4488ff;
+    }
+    .clip-play:hover { background: #4488ff; color: white; }
+    .clip-play.playing { background: #4488ff; color: white; }
+    .clip-del {
+      background: transparent;
+      border-color: #444;
+      color: #555;
+    }
+    .clip-del:hover { border-color: #e94560; color: #e94560; }
+  </style>
+</head>
+<body data-game="00008">
+
+  <div id="name-bar">
+    <label for="name-input">Name:</label>
+    <input id="name-input" type="text" maxlength="24" placeholder="Your name…" autocomplete="off" spellcheck="false">
+  </div>
+
+  <div id="rec-area">
+    <button id="rec-btn">🎙️</button>
+    <div id="rec-timer"></div>
+    <div id="rec-status">Tap the mic to record</div>
+  </div>
+
+  <div id="clips-wrap">
+    <div id="empty-hint">No recordings yet.<br>Be the first to leave a voice note!</div>
+  </div>
+
+  <script src="/shared/nav.js"></script>
+  <script>
+    const nameInput  = document.getElementById('name-input');
+    const recBtn     = document.getElementById('rec-btn');
+    const recTimer   = document.getElementById('rec-timer');
+    const recStatus  = document.getElementById('rec-status');
+    const clipsWrap  = document.getElementById('clips-wrap');
+    const emptyHint  = document.getElementById('empty-hint');
+
+    // ── Name persistence
+    nameInput.value = localStorage.getItem('chat-name') || '';
+    nameInput.addEventListener('input', () => localStorage.setItem('chat-name', nameInput.value.trim()));
+
+    // ── Name → colour
+    const AVATAR_COLORS = ['#e94560','#4488ff','#44cc88','#ffcc00','#cc44cc','#ff8844','#44cccc','#ff44aa'];
+    function nameColor(name) {
+      let h = 0;
+      for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+      return AVATAR_COLORS[h % AVATAR_COLORS.length];
+    }
+    function initials(name) {
+      return name.trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
+    }
+
+    // ── Time formatting
+    function fmtDur(s) {
+      const m = Math.floor(s / 60), sec = Math.round(s % 60);
+      return `${m}:${String(sec).padStart(2,'0')}`;
+    }
+    function fmtDate(ts) {
+      const d = new Date(ts);
+      const now = new Date();
+      const sameDay = d.toDateString() === now.toDateString();
+      const h = d.getHours(), mi = String(d.getMinutes()).padStart(2,'0');
+      const time = `${h}:${mi}`;
+      if (sameDay) return 'Today at ' + time;
+      return d.toLocaleDateString(undefined, { month:'short', day:'numeric' }) + ' at ' + time;
+    }
+
+    // ── Recording
+    const MIME_TYPES = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/mp4'];
+    const MIME = MIME_TYPES.find(t => { try { return MediaRecorder.isTypeSupported(t); } catch(_){ return false; } }) || '';
+
+    let mediaRecorder = null;
+    let recChunks = [];
+    let recStart = 0;
+    let recInterval = null;
+    const MAX_REC_SECS = 120;
+
+    recBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        stopRecording();
+      } else {
+        startRecording();
+      }
+    });
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        recChunks = [];
+        const opts = MIME ? { mimeType: MIME } : {};
+        mediaRecorder = new MediaRecorder(stream, opts);
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recChunks.push(e.data); };
+        mediaRecorder.onstop = () => { stream.getTracks().forEach(t => t.stop()); uploadRecording(); };
+        mediaRecorder.start(250);
+        recStart = Date.now();
+        recBtn.classList.add('recording');
+        recBtn.textContent = '⏹';
+        recStatus.className = '';
+        recStatus.textContent = 'Recording… tap to stop';
+        recInterval = setInterval(() => {
+          const elapsed = (Date.now() - recStart) / 1000;
+          recTimer.textContent = fmtDur(elapsed);
+          if (elapsed >= MAX_REC_SECS) stopRecording();
+        }, 250);
+      } catch (e) {
+        recStatus.className = 'err';
+        recStatus.textContent = 'Microphone access denied';
+      }
+    }
+
+    function stopRecording() {
+      clearInterval(recInterval);
+      recTimer.textContent = '';
+      recBtn.classList.remove('recording');
+      recBtn.textContent = '🎙️';
+      if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
+    }
+
+    async function uploadRecording() {
+      const dur = (Date.now() - recStart) / 1000;
+      const mimeType = (mediaRecorder.mimeType || MIME || 'audio/webm').split(';')[0];
+      const blob = new Blob(recChunks, { type: mimeType });
+      if (blob.size < 1000) { recStatus.className=''; recStatus.textContent='Tap the mic to record'; return; }
+
+      recStatus.className = '';
+      recStatus.textContent = 'Saving…';
+
+      const name = encodeURIComponent(nameInput.value.trim() || 'Anonymous');
+      const url  = `/api/recordings?name=${name}&dur=${dur.toFixed(1)}`;
+
+      try {
+        const resp = await fetch(url, { method:'POST', body: blob, headers:{ 'Content-Type': mimeType } });
+        if (!resp.ok) throw new Error('Upload failed');
+        recStatus.className = 'ok';
+        recStatus.textContent = 'Saved!';
+        setTimeout(() => { recStatus.className=''; recStatus.textContent='Tap the mic to record'; }, 2000);
+      } catch (e) {
+        recStatus.className = 'err';
+        recStatus.textContent = 'Save failed — try again';
+      }
+    }
+
+    // ── Clip list rendering
+    const clipEls = new Map(); // filename → DOM element
+    let currentAudio = null;
+    let currentPlayBtn = null;
+
+    function renderClip(meta) {
+      if (clipEls.has(meta.filename)) return;
+
+      emptyHint.style.display = 'none';
+
+      const clip = document.createElement('div');
+      clip.className = 'clip';
+      clip.dataset.filename = meta.filename;
+
+      const color = nameColor(meta.name);
+
+      clip.innerHTML = `
+        <div class="clip-avatar" style="background:${color}">${initials(meta.name)}</div>
+        <div class="clip-info">
+          <div class="clip-name">${meta.name}</div>
+          <div class="clip-meta">${fmtDate(meta.time)}${meta.dur ? ' · ' + fmtDur(meta.dur) : ''}</div>
+          <div class="clip-progress"><div class="clip-progress-fill"></div></div>
+        </div>
+        <div class="clip-actions">
+          <button class="clip-play" title="Play">▶</button>
+          <button class="clip-del" title="Delete">🗑</button>
+        </div>
+      `;
+
+      const playBtn  = clip.querySelector('.clip-play');
+      const delBtn   = clip.querySelector('.clip-del');
+      const progress = clip.querySelector('.clip-progress');
+      const fill     = clip.querySelector('.clip-progress-fill');
+
+      playBtn.addEventListener('click', () => {
+        if (currentAudio && !currentAudio.paused && currentPlayBtn === playBtn) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0;
+          stopPlayUI(playBtn, progress, fill);
+          return;
+        }
+        if (currentAudio) {
+          currentAudio.pause();
+          if (currentPlayBtn) stopPlayUI(currentPlayBtn,
+            currentPlayBtn.closest('.clip').querySelector('.clip-progress'),
+            currentPlayBtn.closest('.clip').querySelector('.clip-progress-fill'));
+        }
+        const audio = new Audio(`/api/recordings/${meta.filename}`);
+        currentAudio = audio;
+        currentPlayBtn = playBtn;
+        playBtn.textContent = '⏸';
+        playBtn.classList.add('playing');
+        progress.classList.add('visible');
+        audio.addEventListener('timeupdate', () => {
+          if (audio.duration) fill.style.width = (audio.currentTime / audio.duration * 100) + '%';
+        });
+        audio.addEventListener('ended', () => stopPlayUI(playBtn, progress, fill));
+        audio.addEventListener('error', () => { stopPlayUI(playBtn, progress, fill); recStatus.className='err'; recStatus.textContent='Playback error'; });
+        audio.play();
+      });
+
+      delBtn.addEventListener('click', async () => {
+        if (!confirm('Delete this recording?')) return;
+        await fetch(`/api/recordings/${meta.filename}`, { method:'DELETE' });
+        // Server will broadcast deleted event; we handle it there
+      });
+
+      clipsWrap.prepend(clip);
+      clipEls.set(meta.filename, clip);
+    }
+
+    function stopPlayUI(btn, progress, fill) {
+      btn.textContent = '▶';
+      btn.classList.remove('playing');
+      if (progress) progress.classList.remove('visible');
+      if (fill) fill.style.width = '0%';
+      currentAudio = null;
+      currentPlayBtn = null;
+    }
+
+    function removeClip(filename) {
+      const el = clipEls.get(filename);
+      if (el) { el.remove(); clipEls.delete(filename); }
+      if (clipEls.size === 0) emptyHint.style.display = '';
+    }
+
+    function loadAll(list) {
+      // list is newest-first from server
+      clipsWrap.innerHTML = '';
+      clipsWrap.appendChild(emptyHint);
+      clipEls.clear();
+      if (list.length === 0) {
+        emptyHint.style.display = '';
+      } else {
+        emptyHint.style.display = 'none';
+        // Render oldest-first so prepend gives newest-at-top
+        [...list].reverse().forEach(renderClip);
+      }
+    }
+
+    // ── WebSocket
+    let ws;
+    function connect() {
+      ws = new WebSocket(`ws://${window.location.host}`);
+      ws.onclose = () => setTimeout(connect, 3000);
+      ws.onerror = () => ws.close();
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.game !== 'rec') return;
+        if (data.type === 'new')     renderClip(data.recording);
+        if (data.type === 'deleted') removeClip(data.filename);
+      };
+    }
+    connect();
+
+    // ── Initial load via HTTP (simpler than waiting for WS)
+    fetch('/api/recordings')
+      .then(r => r.json())
+      .then(loadAll)
+      .catch(() => {});
+  </script>
+</body>
+</html>

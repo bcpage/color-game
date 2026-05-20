@@ -7,12 +7,22 @@ const { networkInterfaces } = require('os');
 const PORT = 3000;
 
 // ─── Game registry ────────────────────────────────────────────────────────────
-const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007'];
+const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008'];
 
 // ─── Cookie persistence ───────────────────────────────────────────────────────
 const DATA_DIR = path.join(__dirname, 'data');
 const COOKIE_FILE = path.join(DATA_DIR, 'cookie.json');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+
+// ─── Recordings persistence ───────────────────────────────────────────────────
+const REC_DIR  = path.join(DATA_DIR, 'recordings');
+const REC_META = path.join(DATA_DIR, 'recordings.json');
+if (!fs.existsSync(REC_DIR)) fs.mkdirSync(REC_DIR);
+let recordings = [];
+try { recordings = JSON.parse(fs.readFileSync(REC_META, 'utf8')); } catch (e) {}
+function saveRecMeta() { fs.writeFileSync(REC_META, JSON.stringify(recordings)); }
+const REC_MAX_BYTES = 5 * 1024 * 1024; // 5 MB per clip
+const REC_MAX_CLIPS = 50;
 
 let cookieCount = 0;
 try { cookieCount = JSON.parse(fs.readFileSync(COOKIE_FILE, 'utf8')).count || 0; } catch (e) {}
@@ -213,6 +223,72 @@ const httpServer = http.createServer((req, res) => {
     cookieCount++;
     saveCookie();
     sendJSON(res, { count: cookieCount });
+    return;
+  }
+
+  // API: list recordings
+  if (pathname === '/api/recordings' && method === 'GET') {
+    sendJSON(res, recordings);
+    return;
+  }
+
+  // API: upload recording
+  if (pathname === '/api/recordings' && method === 'POST') {
+    const qs = req.url.includes('?') ? req.url.split('?')[1] : '';
+    const params = Object.fromEntries(new URLSearchParams(qs));
+    const name = String(params.name || 'Anonymous').slice(0, 24).trim() || 'Anonymous';
+    const dur  = parseFloat(params.dur) || 0;
+    const ct   = (req.headers['content-type'] || 'audio/webm').split(';')[0].trim();
+    const ext  = ct === 'audio/mp4' ? 'mp4' : ct === 'audio/ogg' ? 'ogg' : 'webm';
+    const id   = Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+    const filename = id + '.' + ext;
+    const filepath = path.join(REC_DIR, filename);
+
+    let size = 0;
+    const chunks = [];
+    req.on('data', chunk => {
+      size += chunk.length;
+      if (size <= REC_MAX_BYTES) chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (size > REC_MAX_BYTES) { res.writeHead(413); res.end('Too large'); return; }
+      fs.writeFileSync(filepath, Buffer.concat(chunks));
+      const meta = { id, filename, name, time: Date.now(), dur: Math.round(dur * 10) / 10 };
+      recordings.unshift(meta);
+      if (recordings.length > REC_MAX_CLIPS) {
+        const old = recordings.pop();
+        try { fs.unlinkSync(path.join(REC_DIR, old.filename)); } catch (_) {}
+      }
+      saveRecMeta();
+      broadcast({ game:'rec', type:'new', recording: meta });
+      sendJSON(res, meta);
+    });
+    req.on('error', () => {});
+    return;
+  }
+
+  // API: serve a recording file
+  const recServe = pathname.match(/^\/api\/recordings\/([a-zA-Z0-9_]+\.(webm|mp4|ogg))$/);
+  if (recServe && method === 'GET') {
+    const filepath = path.join(REC_DIR, recServe[1]);
+    if (!fs.existsSync(filepath)) { res.writeHead(404); res.end('Not found'); return; }
+    const ct = recServe[2] === 'mp4' ? 'audio/mp4' : recServe[2] === 'ogg' ? 'audio/ogg' : 'audio/webm';
+    res.writeHead(200, { 'Content-Type': ct });
+    fs.createReadStream(filepath).pipe(res);
+    return;
+  }
+
+  // API: delete a recording
+  const recDel = pathname.match(/^\/api\/recordings\/([a-zA-Z0-9_]+\.(webm|mp4|ogg))$/);
+  if (recDel && method === 'DELETE') {
+    const filename = recDel[1];
+    const idx = recordings.findIndex(r => r.filename === filename);
+    if (idx === -1) { res.writeHead(404); res.end(); return; }
+    recordings.splice(idx, 1);
+    saveRecMeta();
+    try { fs.unlinkSync(path.join(REC_DIR, filename)); } catch (_) {}
+    broadcast({ game:'rec', type:'deleted', filename });
+    sendJSON(res, { ok: true });
     return;
   }
 
