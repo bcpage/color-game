@@ -37,7 +37,7 @@
     #content.fading { opacity: 0; }
 
     #title {
-      font-size: clamp(1rem, 4vw, 1.5rem);
+      font-size: clamp(1.3rem, 5vw, 1.8rem);
       color: #e94560;
       text-shadow: 0 0 20px rgba(233,69,96,0.4);
       letter-spacing: 2px;
@@ -47,16 +47,16 @@
     #welcome-text {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      font-size: clamp(0.85rem, 2.2vw, 1rem);
+      gap: 12px;
+      font-size: clamp(1rem, 3.5vw, 1.1rem);
       color: #aaaaaa;
-      line-height: 1.8;
+      line-height: 2;
     }
 
     #enter-btn {
       font-family: 'Fredoka One', cursive;
-      font-size: clamp(0.85rem, 2.2vw, 1rem);
-      padding: 10px 32px;
+      font-size: clamp(1rem, 3.5vw, 1.15rem);
+      padding: 12px 36px;
       border: 2px solid #e94560;
       border-radius: 30px;
       background: transparent;
@@ -70,7 +70,7 @@
     #enter-btn:active { transform: scale(0.97); }
 
     #footer-text {
-      font-size: 0.7rem;
+      font-size: 0.8rem;
       color: #333;
       letter-spacing: 1px;
       min-height: 1em;
@@ -90,7 +90,12 @@
   // ── Device identity ───────────────────────────────────────────────────────
   (function () {
     if (!/(?:^|;\s*)device=[a-f0-9-]{36}/.test(document.cookie)) {
-      const id = crypto.randomUUID();
+      const id = crypto.randomUUID
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+            const r = Math.random() * 16 | 0;
+            return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+          });
       document.cookie = 'device=' + id + '; path=/; max-age=31536000; SameSite=Lax';
     }
   })();

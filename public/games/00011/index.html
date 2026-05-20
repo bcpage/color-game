@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Number Dispenser</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: 'Fredoka One', cursive;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      padding: 24px;
+      gap: 32px;
+      text-align: center;
+    }
+
+    /* ── NOW SERVING display ── */
+    #serving-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #serving-label {
+      font-size: 0.75rem;
+      letter-spacing: 4px;
+      color: #444;
+    }
+
+    #serving-number {
+      font-size: clamp(3rem, 15vw, 5rem);
+      color: #8b0000;
+      text-shadow: 0 0 24px rgba(180,0,0,0.6), 0 0 4px rgba(180,0,0,0.9);
+      letter-spacing: 8px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #divider {
+      width: 120px;
+      height: 1px;
+      background: #2a2a3e;
+    }
+
+    /* ── Take button ── */
+    #take-btn {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(1rem, 4vw, 1.2rem);
+      padding: 14px 40px;
+      border: 2px solid #e94560;
+      border-radius: 30px;
+      background: transparent;
+      color: #e94560;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: background 0.2s, color 0.2s, transform 0.1s;
+    }
+    #take-btn:hover { background: #e94560; color: white; }
+    #take-btn:active { transform: scale(0.97); }
+
+    /* ── Ticket card ── */
+    #ticket {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      border: 1px dashed #333;
+      border-radius: 8px;
+      padding: 20px 36px;
+      position: relative;
+    }
+
+    #ticket::before, #ticket::after {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      background: #1a1a2e;
+      border-radius: 50%;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    #ticket::before { left: -8px; border: 1px dashed #333; }
+    #ticket::after  { right: -8px; border: 1px dashed #333; }
+
+    #ticket-label {
+      font-size: 0.65rem;
+      letter-spacing: 4px;
+      color: #444;
+    }
+
+    #ticket-number {
+      font-size: clamp(3.5rem, 18vw, 6rem);
+      color: white;
+      letter-spacing: 6px;
+      line-height: 1;
+    }
+
+    #ticket-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.72rem;
+      color: #444;
+      letter-spacing: 1px;
+      margin-top: 4px;
+    }
+
+    /* ── Footer ── */
+    #footer {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: clamp(0.7rem, 2vw, 0.8rem);
+      color: #333;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body data-game="00011">
+
+  <div id="serving-block">
+    <div id="serving-label">NOW SERVING</div>
+    <div id="serving-number">000</div>
+  </div>
+
+  <div id="divider"></div>
+
+  <button id="take-btn">Take a Number</button>
+
+  <div id="ticket">
+    <div id="ticket-label">TICKET</div>
+    <div id="ticket-number"></div>
+    <div id="ticket-meta">
+      <span id="ticket-issued"></span>
+      <span>Purpose: unknown</span>
+      <span>Status: held</span>
+    </div>
+  </div>
+
+  <div id="footer">
+    <span>We will call your number when it is time.</span>
+    <span>We do not know when it will be time.</span>
+  </div>
+
+<script>
+  const btn    = document.getElementById('take-btn');
+  const ticket = document.getElementById('ticket');
+  const numEl  = document.getElementById('ticket-number');
+  const issued = document.getElementById('ticket-issued');
+
+  function pad(n) {
+    return n < 1000 ? String(n).padStart(3, '0') : String(n);
+  }
+
+  function formatDate(ts) {
+    const d = new Date(ts);
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function showTicket(number, ts) {
+    btn.style.display = 'none';
+    numEl.textContent = '#' + pad(number);
+    issued.textContent = 'Issued: ' + formatDate(ts || Date.now());
+    ticket.style.display = 'flex';
+  }
+
+  // Check if already issued
+  fetch('/api/ticket')
+    .then(r => r.json())
+    .then(data => {
+      if (data.number) showTicket(data.number);
+    });
+
+  btn.addEventListener('click', () => {
+    btn.disabled = true;
+    fetch('/api/ticket/take', { method: 'POST' })
+      .then(r => r.json())
+      .then(data => showTicket(data.number, Date.now()))
+      .catch(() => { btn.disabled = false; });
+  });
+</script>
+
+<script src="/shared/nav.js"></script>
+</body>
+</html>

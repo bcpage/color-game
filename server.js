@@ -7,7 +7,7 @@ const { networkInterfaces } = require('os');
 const PORT = 3000;
 
 // ─── Game registry ────────────────────────────────────────────────────────────
-const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '00009'];
+const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '00009', '00010', '00011'];
 
 // ─── Cookie persistence ───────────────────────────────────────────────────────
 const COOKIE_DATA_DIR = path.join(__dirname, 'public', 'games', '00002', 'data');
@@ -28,6 +28,20 @@ const REC_MAX_CLIPS = 50;
 let cookieCount = 0;
 try { cookieCount = JSON.parse(fs.readFileSync(COOKIE_FILE, 'utf8')).count || 0; } catch (e) {}
 function saveCookie() { fs.writeFileSync(COOKIE_FILE, JSON.stringify({ count: cookieCount })); }
+
+// ─── Ticket dispenser ────────────────────────────────────────────────────────
+const TICKET_DATA_DIR = path.join(__dirname, 'public', 'games', '00011', 'data');
+const TICKET_FILE = path.join(TICKET_DATA_DIR, 'tickets.json');
+if (!fs.existsSync(TICKET_DATA_DIR)) fs.mkdirSync(TICKET_DATA_DIR, { recursive: true });
+let ticketData = { next: 1, issued: {} };
+try { ticketData = JSON.parse(fs.readFileSync(TICKET_FILE, 'utf8')); } catch (e) {}
+function saveTickets() { fs.writeFileSync(TICKET_FILE, JSON.stringify(ticketData)); }
+
+function getDeviceId(req) {
+  const cookie = req.headers.cookie || '';
+  const match = cookie.match(/(?:^|;\s*)device=([a-f0-9-]{36})/);
+  return match ? match[1] : null;
+}
 
 // ─── Tic Tac Toe state ───────────────────────────────────────────────────────
 const WIN_LINES = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -296,6 +310,29 @@ const httpServer = http.createServer((req, res) => {
     try { fs.unlinkSync(path.join(REC_DIR, filename)); } catch (_) {}
     broadcast({ game:'rec', type:'deleted', filename });
     sendJSON(res, { ok: true });
+    return;
+  }
+
+  // API: get my ticket
+  if (pathname === '/api/ticket' && method === 'GET') {
+    const device = getDeviceId(req);
+    const number = device ? (ticketData.issued[device] || null) : null;
+    sendJSON(res, { number });
+    return;
+  }
+
+  // API: take a ticket (once per device, ever)
+  if (pathname === '/api/ticket/take' && method === 'POST') {
+    const device = getDeviceId(req);
+    if (!device) { res.writeHead(400); res.end('No device id'); return; }
+    if (ticketData.issued[device]) {
+      sendJSON(res, { number: ticketData.issued[device] });
+      return;
+    }
+    const number = ticketData.next++;
+    ticketData.issued[device] = number;
+    saveTickets();
+    sendJSON(res, { number });
     return;
   }
 

@@ -7,6 +7,7 @@
       gap: 14px;
       font-family: 'Fredoka One', cursive;
       flex-shrink: 0;
+      align-self: center;
     }
     #game-nav .nav-btn {
       background: none;
