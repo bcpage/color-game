@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>The Yellow Door</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    /*
+      Creative choices:
+      - The door opens wider on each visit. It has always been slightly ajar.
+        Visit count is stored in localStorage. Max ajar angle: 110 degrees (5+ visits).
+      - Clicking the door opens it further, revealing another yellow door inside.
+        Behind that door is another door. There are 5 doors total.
+        The fifth door opens onto darkness. Just darkness.
+      - A low 40Hz hum plays via Web Audio API while any door is open.
+      - The door is never explained. There is no caption.
+    */
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      font-family: 'Fredoka One', cursive;
+    }
+
+    #scene {
+      position: relative;
+      width: min(320px, 80vw);
+      aspect-ratio: 0.48;
+      perspective: 900px;
+      cursor: pointer;
+    }
+
+    /* ── Door frame ── */
+    .frame {
+      position: absolute;
+      inset: 0;
+      border: 8px solid #5a4a1a;
+      border-bottom: none;
+      background: #0d0d1a;
+      border-radius: 2px 2px 0 0;
+    }
+
+    /* ── The door leaf ── */
+    .door-leaf {
+      position: absolute;
+      inset: 0;
+      transform-origin: left center;
+      transform-style: preserve-3d;
+      transition: transform 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: transform;
+    }
+
+    .door-face {
+      position: absolute;
+      inset: 0;
+      background: #d4a017;
+      border-radius: 2px 2px 0 0;
+      backface-visibility: hidden;
+    }
+
+    /* Door panel insets */
+    .door-face::before,
+    .door-face::after {
+      content: '';
+      position: absolute;
+      left: 12%;
+      right: 12%;
+      border: 3px solid rgba(0,0,0,0.18);
+      border-radius: 2px;
+    }
+    .door-face::before { top: 8%; height: 36%; }
+    .door-face::after  { top: 52%; bottom: 8%; }
+
+    /* Door knob */
+    .knob {
+      position: absolute;
+      right: 11%;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 7%;
+      aspect-ratio: 1;
+      background: radial-gradient(circle at 35% 35%, #888, #3a3a3a);
+      border-radius: 50%;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    }
+
+    /* Door edge (the thickness seen when open) */
+    .door-edge {
+      position: absolute;
+      top: 0; bottom: 0;
+      left: 0;
+      width: 8px;
+      background: #a87c0c;
+      transform: rotateY(-90deg) translateZ(-4px);
+      backface-visibility: hidden;
+    }
+
+    /* ── Interior (visible when door is open) ── */
+    .interior {
+      position: absolute;
+      inset: 0;
+      background: #070710;
+      border-radius: 2px 2px 0 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* ── Nested door (inside the interior) ── */
+    .inner-door-wrap {
+      position: absolute;
+      width: 52%;
+      height: 56%;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      perspective: 600px;
+    }
+
+    /* ── Depth fog in interior ── */
+    .interior::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 110%, transparent 40%, #070710 85%);
+      pointer-events: none;
+    }
+
+    /* ── Floor line ── */
+    #scene::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: -4px;
+      right: -4px;
+      height: 6px;
+      background: #5a4a1a;
+    }
+  </style>
+</head>
+<body data-game="00012">
+
+<div id="scene">
+  <div class="frame">
+    <div class="interior" id="interior-1">
+      <div class="inner-door-wrap" id="wrap-2"></div>
+    </div>
+  </div>
+  <div class="door-leaf" id="door-1">
+    <div class="door-face">
+      <div class="knob"></div>
+    </div>
+    <div class="door-edge"></div>
+  </div>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+
+const TOTAL_DOORS = 5;
+const MAX_VISITS   = TOTAL_DOORS;
+
+// Visit count drives how ajar the door is on load
+const visits = Math.min(parseInt(localStorage.getItem('yd_visits') || '0', 10), MAX_VISITS);
+localStorage.setItem('yd_visits', String(visits + 1));
+
+// openDepth: how many doors the user has opened this session
+let openDepth = 0;
+
+// ── Audio ─────────────────────────────────────────────────────────────────────
+
+let audioCtx = null;
+let humNode   = null;
+let humGain   = null;
+
+function startHum() {
+  if (humNode) return;
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e) { return; }
+  }
+  humNode = audioCtx.createOscillator();
+  humGain = audioCtx.createGain();
+  humNode.type = 'sine';
+  humNode.frequency.value = 40;
+  humGain.gain.setValueAtTime(0, audioCtx.currentTime);
+  humGain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 1.5);
+  humNode.connect(humGain);
+  humGain.connect(audioCtx.destination);
+  humNode.start();
+}
+
+function stopHum() {
+  if (!humGain || !audioCtx) return;
+  humGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
+  const n = humNode;
+  setTimeout(() => { try { n.stop(); } catch(e){} }, 1600);
+  humNode = null;
+  humGain = null;
+}
+
+// ── Build nested doors recursively ───────────────────────────────────────────
+
+function buildDoor(depth, container) {
+  if (depth > TOTAL_DOORS) return;
+
+  const scaleX = 1;
+  const scaleY = 1;
+
+  // frame
+  const frame = document.createElement('div');
+  frame.className = 'frame';
+  frame.style.cssText = 'position:absolute;inset:0;border:8px solid #5a4a1a;border-bottom:none;background:#070710;border-radius:2px 2px 0 0;';
+
+  // interior
+  const interior = document.createElement('div');
+  interior.className = 'interior';
+  interior.id = 'interior-' + depth;
+  interior.style.cssText = 'position:absolute;inset:0;background:#070710;border-radius:2px 2px 0 0;display:flex;align-items:center;justify-content:center;overflow:hidden;';
+
+  if (depth < TOTAL_DOORS) {
+    const innerWrap = document.createElement('div');
+    innerWrap.className = 'inner-door-wrap';
+    innerWrap.id = 'wrap-' + (depth + 1);
+    innerWrap.style.cssText = 'position:absolute;width:52%;height:56%;bottom:0;left:50%;transform:translateX(-50%);perspective:600px;';
+    interior.appendChild(innerWrap);
+    frame.appendChild(interior);
+
+    // fog overlay
+    const fog = document.createElement('div');
+    fog.style.cssText = 'position:absolute;inset:0;background:radial-gradient(ellipse at 50% 110%,transparent 40%,#070710 85%);pointer-events:none;';
+    interior.appendChild(fog);
+
+    // recurse after DOM settles
+    setTimeout(() => buildDoor(depth + 1, innerWrap), 0);
+  } else {
+    // Last door interior — just darkness, no nested door
+    frame.appendChild(interior);
+  }
+
+  // leaf
+  const leaf = document.createElement('div');
+  leaf.className = 'door-leaf';
+  leaf.id = 'door-' + depth;
+  leaf.style.cssText = 'position:absolute;inset:0;transform-origin:left center;transform-style:preserve-3d;transition:transform 0.9s cubic-bezier(0.4,0,0.2,1);will-change:transform;';
+
+  const face = document.createElement('div');
+  face.className = 'door-face';
+  face.style.cssText = 'position:absolute;inset:0;background:#d4a017;border-radius:2px 2px 0 0;backface-visibility:hidden;';
+
+  // panels via inline elements (can't use ::before/::after on dynamic elements easily)
+  const p1 = document.createElement('div');
+  p1.style.cssText = 'position:absolute;left:12%;right:12%;top:8%;height:36%;border:3px solid rgba(0,0,0,0.18);border-radius:2px;';
+  const p2 = document.createElement('div');
+  p2.style.cssText = 'position:absolute;left:12%;right:12%;top:52%;bottom:8%;border:3px solid rgba(0,0,0,0.18);border-radius:2px;';
+  const knob = document.createElement('div');
+  knob.className = 'knob';
+  knob.style.cssText = 'position:absolute;right:11%;top:50%;transform:translateY(-50%);width:7%;aspect-ratio:1;background:radial-gradient(circle at 35% 35%,#888,#3a3a3a);border-radius:50%;box-shadow:0 1px 3px rgba(0,0,0,0.5);';
+
+  face.appendChild(p1);
+  face.appendChild(p2);
+  face.appendChild(knob);
+
+  const edge = document.createElement('div');
+  edge.className = 'door-edge';
+  edge.style.cssText = 'position:absolute;top:0;bottom:0;left:0;width:8px;background:#a87c0c;transform:rotateY(-90deg) translateZ(-4px);backface-visibility:hidden;';
+
+  leaf.appendChild(face);
+  leaf.appendChild(edge);
+
+  container.appendChild(frame);
+  container.appendChild(leaf);
+}
+
+// Build doors 2-5 inside their parent interiors
+setTimeout(() => buildDoor(2, document.getElementById('wrap-2')), 10);
+
+// ── Ajar on load ──────────────────────────────────────────────────────────────
+
+// Each past visit adds ~18 degrees of ajar, up to ~90 degrees
+function ajarAngle(v) {
+  return Math.min(v * 18, 90);
+}
+
+function applyAjar() {
+  const angle = ajarAngle(visits);
+  if (angle <= 0) return;
+
+  // Apply the appropriate ajar to all doors up to depth=visits, decreasing
+  for (let d = 1; d <= Math.min(visits, TOTAL_DOORS); d++) {
+    const el = document.getElementById('door-' + d);
+    if (!el) continue;
+    const a = Math.max(ajarAngle(visits - (d - 1)), 0);
+    el.style.transition = 'none';
+    el.style.transform = 'rotateY(-' + a + 'deg)';
+  }
+
+  if (angle > 0) startHum();
+}
+
+setTimeout(applyAjar, 80);
+
+// ── Click to open ─────────────────────────────────────────────────────────────
+
+document.getElementById('scene').addEventListener('click', function handleClick() {
+  openDepth = Math.min(openDepth + 1, TOTAL_DOORS);
+
+  for (let d = 1; d <= openDepth; d++) {
+    const el = document.getElementById('door-' + d);
+    if (!el) continue;
+    // Each successive door opens a bit less wide due to perspective foreshortening
+    const angle = 100 - (d - 1) * 8;
+    el.style.transition = 'transform 0.9s cubic-bezier(0.4,0,0.2,1)';
+    el.style.transform = 'rotateY(-' + angle + 'deg)';
+  }
+
+  startHum();
+
+  // After all doors opened, clicking again closes them all
+  if (openDepth >= TOTAL_DOORS) {
+    document.getElementById('scene').removeEventListener('click', handleClick);
+    document.getElementById('scene').addEventListener('click', function closeAll() {
+      for (let d = 1; d <= TOTAL_DOORS; d++) {
+        const el = document.getElementById('door-' + d);
+        if (el) {
+          el.style.transition = 'transform 1.2s cubic-bezier(0.4,0,0.2,1)';
+          el.style.transform = 'rotateY(0deg)';
+        }
+      }
+      openDepth = 0;
+      stopHum();
+
+      // Re-attach open handler after close animation
+      setTimeout(() => {
+        document.getElementById('scene').removeEventListener('click', closeAll);
+        document.getElementById('scene').addEventListener('click', handleClick);
+      }, 1300);
+    }, { once: false });
+  }
+});
+</script>
+
+<script src="/shared/nav.js"></script>
+</body>
+</html>
