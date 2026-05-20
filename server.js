@@ -7,7 +7,7 @@ const { networkInterfaces } = require('os');
 const PORT = 3000;
 
 // ─── Game registry ────────────────────────────────────────────────────────────
-const GAMES = ['00001', '00002', '00003'];
+const GAMES = ['00001', '00002', '00003', '00004'];
 
 // ─── Cookie persistence ───────────────────────────────────────────────────────
 const DATA_DIR = path.join(__dirname, 'data');

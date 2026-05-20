@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Game of Life</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: 'Fredoka One', cursive;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      padding: 8px;
+      gap: 8px;
+    }
+
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      flex-shrink: 0;
+    }
+
+    /* filled primary button */
+    .btn {
+      font-family: 'Fredoka One', cursive;
+      font-size: 0.9rem;
+      padding: 5px 16px;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      background: #e94560;
+      color: white;
+      transition: background 0.12s, transform 0.08s, opacity 0.12s;
+      white-space: nowrap;
+    }
+    .btn:hover { background: #c73652; }
+    .btn:active { transform: scale(0.95); }
+    .btn:disabled { opacity: 0.35; cursor: default; transform: none; }
+
+    /* outline secondary button */
+    .btn-outline {
+      font-family: 'Fredoka One', cursive;
+      font-size: 0.9rem;
+      padding: 5px 14px;
+      border: 2px solid #555;
+      border-radius: 20px;
+      cursor: pointer;
+      background: transparent;
+      color: #aaa;
+      transition: background 0.12s, color 0.12s, border-color 0.12s, transform 0.08s, opacity 0.12s;
+      white-space: nowrap;
+    }
+    .btn-outline:hover { background: #333; color: white; border-color: #888; }
+    .btn-outline:active { transform: scale(0.95); }
+    .btn-outline.selected { background: #e94560; color: white; border-color: #e94560; }
+    .btn-outline:disabled { opacity: 0.35; cursor: default; transform: none; }
+
+    #divider { width: 1px; height: 24px; background: #444; margin: 0 4px; }
+
+    #gen-display {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      color: #ffcc00;
+      white-space: nowrap;
+    }
+    #gen-count { font-size: 1.3rem; }
+    .gen-label { font-size: 0.8rem; color: #666; }
+
+    #canvas-wrapper {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: stretch;
+    }
+
+    canvas {
+      display: block;
+      cursor: crosshair;
+      touch-action: none;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body data-game="00004">
+
+  <div id="controls">
+    <button class="btn"         id="btn-start">▶ Start</button>
+    <button class="btn-outline" id="btn-step">Step</button>
+    <button class="btn-outline" id="btn-clear">Clear</button>
+    <button class="btn-outline" id="btn-random">Random</button>
+    <div id="divider"></div>
+    <div id="gen-display">
+      <span id="gen-count">0</span>
+      <span class="gen-label">gen</span>
+    </div>
+    <div id="divider"></div>
+    <button class="btn-outline speed-btn selected" data-ms="120">Slow</button>
+    <button class="btn-outline speed-btn"          data-ms="40">Med</button>
+    <button class="btn-outline speed-btn"          data-ms="15">Fast</button>
+  </div>
+
+  <div id="canvas-wrapper">
+    <canvas id="life-canvas"></canvas>
+  </div>
+
+  <script src="/shared/nav.js"></script>
+  <script>
+    const CELL = 10; // px per cell
+
+    const canvas  = document.getElementById('life-canvas');
+    const ctx     = canvas.getContext('2d');
+    const genEl   = document.getElementById('gen-count');
+    const startBtn = document.getElementById('btn-start');
+    const stepBtn  = document.getElementById('btn-step');
+
+    let cols = 0, rows = 0, grid = [];
+    let generation = 0;
+    let running = false;
+    let simTimer = null;
+    let speedMs = 120;
+    let drawMode = null; // 1 = painting alive, 0 = erasing
+
+    // ── Grid helpers ────────────────────────────────────────────────────────
+    function idx(c, r) { return r * cols + c; }
+
+    function neighbors(c, r) {
+      let n = 0;
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          if (!dr && !dc) continue;
+          n += grid[((r + dr + rows) % rows) * cols + ((c + dc + cols) % cols)];
+        }
+      }
+      return n;
+    }
+
+    // ── Simulation ──────────────────────────────────────────────────────────
+    function step() {
+      const next = new Array(cols * rows).fill(0);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const alive = grid[idx(c, r)];
+          const n = neighbors(c, r);
+          next[idx(c, r)] = alive ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0);
+        }
+      }
+      grid = next;
+      generation++;
+      draw();
+      updateUI();
+    }
+
+    // ── Drawing ─────────────────────────────────────────────────────────────
+    function draw() {
+      ctx.fillStyle = '#0e0e1e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#39d353';
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[idx(c, r)]) {
+            ctx.fillRect(c * CELL + 1, r * CELL + 1, CELL - 1, CELL - 1);
+          }
+        }
+      }
+      // faint grid dot at each corner for reference
+      ctx.fillStyle = '#1c1c2e';
+      for (let r = 0; r <= rows; r++) {
+        for (let c = 0; c <= cols; c++) {
+          ctx.fillRect(c * CELL, r * CELL, 1, 1);
+        }
+      }
+    }
+
+    // ── UI ──────────────────────────────────────────────────────────────────
+    function updateUI() {
+      genEl.textContent = generation.toLocaleString();
+      startBtn.textContent = running ? '⏸ Stop' : '▶ Start';
+      stepBtn.disabled = running;
+    }
+
+    // ── Controls ────────────────────────────────────────────────────────────
+    function startStop() {
+      running = !running;
+      if (running) {
+        simTimer = setInterval(step, speedMs);
+      } else {
+        clearInterval(simTimer);
+        simTimer = null;
+      }
+      updateUI();
+    }
+
+    function setSpeed(ms) {
+      speedMs = ms;
+      document.querySelectorAll('.speed-btn').forEach(b => {
+        b.classList.toggle('selected', parseInt(b.dataset.ms) === ms);
+      });
+      if (running) { clearInterval(simTimer); simTimer = setInterval(step, speedMs); }
+    }
+
+    function clearGrid() {
+      grid = new Array(cols * rows).fill(0);
+      generation = 0;
+      draw(); updateUI();
+    }
+
+    function randomize() {
+      grid = Array.from({ length: cols * rows }, () => Math.random() < 0.3 ? 1 : 0);
+      draw();
+    }
+
+    document.getElementById('btn-start').addEventListener('click', startStop);
+    document.getElementById('btn-step').addEventListener('click', () => { if (!running) step(); });
+    document.getElementById('btn-clear').addEventListener('click', clearGrid);
+    document.getElementById('btn-random').addEventListener('click', randomize);
+    document.querySelectorAll('.speed-btn').forEach(b => {
+      b.addEventListener('click', () => setSpeed(parseInt(b.dataset.ms)));
+    });
+
+    // ── Canvas input ────────────────────────────────────────────────────────
+    function cellFromEvent(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width  / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const c = Math.floor((clientX - rect.left) * scaleX / CELL);
+      const r = Math.floor((clientY - rect.top)  * scaleY / CELL);
+      if (c < 0 || c >= cols || r < 0 || r >= rows) return null;
+      return { c, r };
+    }
+
+    function paintAt(clientX, clientY) {
+      const pos = cellFromEvent(clientX, clientY);
+      if (!pos || drawMode === null) return;
+      if (grid[idx(pos.c, pos.r)] === drawMode) return;
+      grid[idx(pos.c, pos.r)] = drawMode;
+      draw();
+    }
+
+    canvas.addEventListener('mousedown', e => {
+      const pos = cellFromEvent(e.clientX, e.clientY);
+      if (!pos) return;
+      drawMode = grid[idx(pos.c, pos.r)] ? 0 : 1;
+      grid[idx(pos.c, pos.r)] = drawMode;
+      draw();
+    });
+    canvas.addEventListener('mousemove', e => { if (drawMode !== null) paintAt(e.clientX, e.clientY); });
+    window.addEventListener('mouseup', () => { drawMode = null; });
+
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      const pos = cellFromEvent(t.clientX, t.clientY);
+      if (!pos) return;
+      drawMode = grid[idx(pos.c, pos.r)] ? 0 : 1;
+      grid[idx(pos.c, pos.r)] = drawMode;
+      draw();
+    }, { passive: false });
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const t = e.touches[0];
+      paintAt(t.clientX, t.clientY);
+    }, { passive: false });
+    canvas.addEventListener('touchend', () => { drawMode = null; });
+
+    // ── Resize ──────────────────────────────────────────────────────────────
+    function resize() {
+      const wrapper = document.getElementById('canvas-wrapper');
+      const w = wrapper.clientWidth  || window.innerWidth;
+      const h = wrapper.clientHeight || (window.innerHeight - 80);
+      canvas.width  = w;
+      canvas.height = h;
+      const newCols = Math.floor(w / CELL);
+      const newRows = Math.floor(h / CELL);
+      if (newCols !== cols || newRows !== rows) {
+        cols = newCols; rows = newRows;
+        grid = new Array(cols * rows).fill(0);
+        generation = 0;
+        updateUI();
+      }
+      draw();
+    }
+
+    window.addEventListener('resize', resize);
+    requestAnimationFrame(resize);
+  </script>
+</body>
+</html>
