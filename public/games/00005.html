@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Pong</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: 'Fredoka One', cursive;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      padding: 8px;
+      gap: 8px;
+    }
+
+    #controls {
+      display: flex;
+      gap: 10px;
+      flex-shrink: 0;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .ctrl-btn {
+      font-family: 'Fredoka One', cursive;
+      font-size: 0.95rem;
+      padding: 5px 18px;
+      border: 2px solid #555;
+      border-radius: 20px;
+      cursor: pointer;
+      background: transparent;
+      color: #aaa;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .ctrl-btn:hover { border-color: #888; color: white; }
+    .ctrl-btn.active-p1 { background: #e94560; color: white; border-color: #e94560; }
+    .ctrl-btn.active-p2 { background: #44cc88; color: white; border-color: #44cc88; }
+    .ctrl-btn.start-btn { border-color: #ffcc00; color: #ffcc00; }
+    .ctrl-btn.start-btn:hover { background: #ffcc00; color: #1a1a2e; }
+
+    #canvas-wrapper {
+      flex: 1;
+      min-height: 0;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    canvas {
+      display: block;
+      border-radius: 10px;
+      touch-action: none;
+    }
+
+    #hint {
+      font-size: 0.8rem;
+      color: #555;
+      flex-shrink: 0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body data-game="00005">
+
+  <div id="controls">
+    <button class="ctrl-btn" id="btn-p1">P1 Left</button>
+    <button class="ctrl-btn start-btn" id="btn-start">▶ Start</button>
+    <button class="ctrl-btn" id="btn-p2">P2 Right</button>
+  </div>
+
+  <div id="canvas-wrapper">
+    <canvas id="cv"></canvas>
+  </div>
+
+  <div id="hint">P1: W/S or touch left · P2: ↑/↓ or touch right</div>
+
+  <script src="/shared/nav.js"></script>
+  <script>
+    // ── Logical game dimensions
+    const LW = 800, LH = 500;
+    const PAD_H = 80, PAD_X = 18, BALL_R = 8;
+
+    const cv = document.getElementById('cv');
+    const ctx = cv.getContext('2d');
+    const wrapper = document.getElementById('canvas-wrapper');
+    const btnP1 = document.getElementById('btn-p1');
+    const btnP2 = document.getElementById('btn-p2');
+    const btnStart = document.getElementById('btn-start');
+
+    let myPlayer = null; // 0 = left, 1 = right
+    let scale = 1;
+    let state = { ball:{x:LW/2,y:LH/2,vx:0,vy:0}, pad:[LH/2,LH/2], score:[0,0], status:'idle', winner:null };
+
+    // ── Canvas sizing
+    function resize() {
+      const maxW = wrapper.clientWidth;
+      const maxH = wrapper.clientHeight;
+      scale = Math.min(maxW / LW, maxH / LH);
+      cv.width  = Math.round(LW * scale);
+      cv.height = Math.round(LH * scale);
+      draw();
+    }
+    window.addEventListener('resize', resize);
+    requestAnimationFrame(resize);
+
+    // ── Drawing
+    function lx(x) { return x * scale; }
+    function ly(y) { return y * scale; }
+
+    function draw() {
+      const W = cv.width, H = cv.height;
+      // Background
+      ctx.fillStyle = '#0d0d1a';
+      ctx.fillRect(0, 0, W, H);
+
+      // Centre line
+      ctx.setLineDash([lx(12), lx(10)]);
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = lx(3);
+      ctx.beginPath();
+      ctx.moveTo(W/2, 0); ctx.lineTo(W/2, H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Scores
+      ctx.fillStyle = '#ffffff55';
+      ctx.font = `bold ${lx(64)}px 'Fredoka One', cursive`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(state.score[0], W * 0.25, ly(20));
+      ctx.fillText(state.score[1], W * 0.75, ly(20));
+
+      // Paddles
+      const padW = lx(12);
+      ctx.fillStyle = '#e94560';
+      ctx.beginPath();
+      roundRect(ctx, lx(PAD_X) - padW/2, ly(state.pad[0] - PAD_H/2), padW, ly(PAD_H), lx(6));
+      ctx.fill();
+
+      ctx.fillStyle = '#44cc88';
+      ctx.beginPath();
+      roundRect(ctx, lx(LW - PAD_X) - padW/2, ly(state.pad[1] - PAD_H/2), padW, ly(PAD_H), lx(6));
+      ctx.fill();
+
+      // Ball
+      if (state.status !== 'idle') {
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = lx(12);
+        ctx.beginPath();
+        ctx.arc(lx(state.ball.x), ly(state.ball.y), lx(BALL_R), 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+
+      // Overlay messages
+      if (state.status === 'idle') {
+        overlay('Press ▶ Start to play', '#ffcc00');
+      } else if (state.status === 'scored') {
+        overlay('', '');
+      } else if (state.status === 'won') {
+        const who = state.winner === 0 ? 'P1 (Left)' : 'P2 (Right)';
+        const col = state.winner === 0 ? '#e94560' : '#44cc88';
+        overlay(who + ' wins! 🎉', col);
+      }
+    }
+
+    function overlay(text, color) {
+      if (!text) return;
+      const W = cv.width, H = cv.height;
+      ctx.fillStyle = 'rgba(0,0,0,0.45)';
+      ctx.fillRect(0, H*0.38, W, H*0.24);
+      ctx.fillStyle = color;
+      ctx.font = `bold ${lx(38)}px 'Fredoka One', cursive`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, W/2, H/2);
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.lineTo(x + w - r, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+      ctx.lineTo(x + w, y + h - r);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+      ctx.lineTo(x + r, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+      ctx.lineTo(x, y + r);
+      ctx.quadraticCurveTo(x, y, x + r, y);
+      ctx.closePath();
+    }
+
+    // ── Player selection
+    function selectPlayer(p) {
+      myPlayer = p;
+      btnP1.className = 'ctrl-btn' + (p === 0 ? ' active-p1' : '');
+      btnP2.className = 'ctrl-btn' + (p === 1 ? ' active-p2' : '');
+    }
+    btnP1.addEventListener('click', () => selectPlayer(0));
+    btnP2.addEventListener('click', () => selectPlayer(1));
+
+    // ── Start button
+    btnStart.addEventListener('click', () => {
+      if (state.status === 'idle') ws.send(JSON.stringify({ game:'pong', type:'start' }));
+    });
+
+    // ── Keyboard input
+    const keysDown = new Set();
+    document.addEventListener('keydown', e => {
+      if (keysDown.has(e.code)) return;
+      keysDown.add(e.code);
+      sendDir();
+    });
+    document.addEventListener('keyup', e => {
+      keysDown.delete(e.code);
+      sendDir();
+    });
+
+    function dirForPlayer(pi) {
+      if (pi === 0) {
+        const up = keysDown.has('KeyW') || keysDown.has('ArrowUp');
+        const dn = keysDown.has('KeyS') || keysDown.has('ArrowDown');
+        return up && !dn ? -1 : dn && !up ? 1 : 0;
+      } else {
+        const up = keysDown.has('ArrowUp')  || keysDown.has('KeyI');
+        const dn = keysDown.has('ArrowDown') || keysDown.has('KeyK');
+        return up && !dn ? -1 : dn && !up ? 1 : 0;
+      }
+    }
+
+    function sendDir() {
+      if (myPlayer === null) return;
+      const dir = dirForPlayer(myPlayer);
+      ws.send(JSON.stringify({ game:'pong', type:'input', player: myPlayer, dir }));
+    }
+
+    // ── Touch input — send absolute Y on the correct side
+    cv.addEventListener('touchstart', handleTouch, { passive: true });
+    cv.addEventListener('touchmove',  handleTouch, { passive: true });
+
+    function handleTouch(e) {
+      for (const t of e.changedTouches) {
+        const rect = cv.getBoundingClientRect();
+        const lx_touch = (t.clientX - rect.left) / scale;
+        const ly_touch = (t.clientY - rect.top)  / scale;
+        // Determine which player this touch belongs to based on x side
+        const side = lx_touch < LW / 2 ? 0 : 1;
+        if (myPlayer !== null && myPlayer !== side) continue; // only send for your side
+        const pi = myPlayer !== null ? myPlayer : side;
+        ws.send(JSON.stringify({ game:'pong', type:'input', player: pi, y: ly_touch }));
+      }
+    }
+
+    // ── Animation loop
+    function loop() {
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    // ── WebSocket
+    let ws;
+    function connect() {
+      ws = new WebSocket(`ws://${window.location.host}`);
+      ws.onopen = () => { requestAnimationFrame(loop); };
+      ws.onclose = () => setTimeout(connect, 3000);
+      ws.onerror = () => ws.close();
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.game === 'pong' && data.type === 'state') {
+          state = data;
+        }
+      };
+    }
+    connect();
+  </script>
+</body>
+</html>

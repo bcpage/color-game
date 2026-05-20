@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Connect Four</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: 'Fredoka One', cursive;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      padding: 8px;
+      gap: 8px;
+    }
+
+    #player-select {
+      display: flex;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .player-btn {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1rem;
+      padding: 6px 22px;
+      border: 2px solid #555;
+      border-radius: 20px;
+      cursor: pointer;
+      background: transparent;
+      color: #aaa;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .player-btn:hover { border-color: #888; color: white; }
+    .player-btn.active-r { background: #e94560; color: white; border-color: #e94560; }
+    .player-btn.active-y { background: #ffcc00; color: #1a1a2e; border-color: #ffcc00; }
+
+    #status {
+      font-size: clamp(0.95rem, 3.5vw, 1.3rem);
+      text-align: center;
+      flex-shrink: 0;
+      min-height: 1.8em;
+      display: flex;
+      align-items: center;
+    }
+    #status.r-turn  { color: #e94560; }
+    #status.y-turn  { color: #ffcc00; }
+    #status.won     { color: #ffffff; font-size: clamp(1.1rem, 4vw, 1.6rem); }
+    #status.draw    { color: #aaa; }
+    #status.warn    { color: #e94560; }
+
+    #game-area {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+    }
+
+    #drop-buttons {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      width: min(98vw, calc(100vh * 0.85));
+    }
+
+    .drop-btn {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(1rem, 3vw, 1.5rem);
+      background: transparent;
+      border: none;
+      color: #555;
+      cursor: pointer;
+      padding: 2px 0;
+      transition: color 0.12s, transform 0.1s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .drop-btn:hover { color: #aaa; transform: translateY(2px); }
+    .drop-btn.r-active:hover { color: #e94560; }
+    .drop-btn.y-active:hover { color: #ffcc00; }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      grid-template-rows: repeat(6, 1fr);
+      gap: 5px;
+      background: #1a3a7a;
+      padding: 10px;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+      width: min(98vw, calc(100vh * 0.85));
+      aspect-ratio: 7 / 6;
+    }
+
+    .cell {
+      background: #1a1a2e;
+      border-radius: 50%;
+      transition: background 0.15s;
+    }
+    .cell.R { background: #e94560; }
+    .cell.Y { background: #ffcc00; }
+
+    .cell.winning {
+      animation: glow-win 0.65s ease-in-out infinite alternate;
+    }
+    .cell.winning.R { animation-name: glow-red; }
+    .cell.winning.Y { animation-name: glow-yel; }
+
+    @keyframes glow-red {
+      from { box-shadow: 0 0 8px  rgba(233, 69, 96, 0.5); }
+      to   { box-shadow: 0 0 28px rgba(233, 69, 96, 1);   }
+    }
+    @keyframes glow-yel {
+      from { box-shadow: 0 0 8px  rgba(255, 204, 0, 0.5); }
+      to   { box-shadow: 0 0 28px rgba(255, 204, 0, 1);   }
+    }
+
+    @keyframes drop-in {
+      0%   { transform: scale(0.2); opacity: 0; }
+      60%  { transform: scale(1.15); }
+      100% { transform: scale(1);   opacity: 1; }
+    }
+    .cell.just-placed { animation: drop-in 0.25s ease-out; }
+  </style>
+</head>
+<body data-game="00006">
+
+  <div id="player-select">
+    <button class="player-btn" id="btn-r">Play as Red</button>
+    <button class="player-btn" id="btn-y">Play as Yellow</button>
+  </div>
+
+  <div id="status">Connecting…</div>
+
+  <div id="game-area">
+    <div id="drop-buttons"></div>
+    <div id="board"></div>
+  </div>
+
+  <script src="/shared/nav.js"></script>
+  <script>
+    const C4C = 7, C4R = 6;
+
+    let myRole = null;
+    let gameState = { board: Array(C4C*C4R).fill(null), turn:'R', status:'playing', winner:null, winCells:null };
+    let warnTimer = null;
+
+    const statusEl  = document.getElementById('status');
+    const boardEl   = document.getElementById('board');
+    const dropEl    = document.getElementById('drop-buttons');
+    const btnR      = document.getElementById('btn-r');
+    const btnY      = document.getElementById('btn-y');
+
+    // Build drop buttons
+    const dropBtns = Array.from({ length: C4C }, (_, c) => {
+      const btn = document.createElement('button');
+      btn.className = 'drop-btn';
+      btn.textContent = '▼';
+      btn.addEventListener('click', () => handleDrop(c));
+      dropEl.appendChild(btn);
+      return btn;
+    });
+
+    // Build board cells (row-major: row 0 = top)
+    const cells = Array.from({ length: C4C * C4R }, (_, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      boardEl.appendChild(cell);
+      return cell;
+    });
+
+    function selectRole(role) {
+      myRole = role;
+      btnR.className = 'player-btn' + (role === 'R' ? ' active-r' : '');
+      btnY.className = 'player-btn' + (role === 'Y' ? ' active-y' : '');
+      updateDropButtons();
+      renderStatus(gameState);
+    }
+    btnR.addEventListener('click', () => selectRole('R'));
+    btnY.addEventListener('click', () => selectRole('Y'));
+
+    function updateDropButtons() {
+      dropBtns.forEach(btn => {
+        btn.classList.remove('r-active', 'y-active');
+        if (myRole === 'R') btn.classList.add('r-active');
+        if (myRole === 'Y') btn.classList.add('y-active');
+      });
+    }
+
+    function renderStatus(state) {
+      if (warnTimer) return;
+      if (state.status === 'won') {
+        const col = state.winner === 'R' ? '#e94560' : '#ffcc00';
+        const name = state.winner === 'R' ? 'Red' : 'Yellow';
+        statusEl.className = 'won';
+        statusEl.innerHTML = `<span style="color:${col}">${name}</span>&nbsp;wins! 🎉`;
+      } else if (state.status === 'draw') {
+        statusEl.className = 'draw';
+        statusEl.textContent = "It's a draw! 🤝";
+      } else if (!myRole) {
+        statusEl.className = '';
+        statusEl.textContent = 'Pick a player above to join';
+      } else {
+        statusEl.className = state.turn === 'R' ? 'r-turn' : 'y-turn';
+        const turnName = state.turn === 'R' ? 'Red' : 'Yellow';
+        const whose = state.turn === myRole ? 'Your turn' : (turnName + "'s turn");
+        statusEl.textContent = whose;
+      }
+    }
+
+    function renderState(state) {
+      gameState = state;
+
+      const winSet = new Set();
+      if (state.winCells) state.winCells.forEach(([c,r]) => winSet.add(r*C4C+c));
+
+      state.board.forEach((val, i) => {
+        const cell = cells[i];
+        const prev = cell.dataset.val || null;
+        cell.dataset.val = val || '';
+        cell.className = 'cell' + (val ? ' ' + val : '');
+        if (val && !prev) cell.classList.add('just-placed');
+        if (winSet.has(i)) cell.classList.add('winning');
+      });
+
+      renderStatus(state);
+    }
+
+    function warn(msg) {
+      if (warnTimer) clearTimeout(warnTimer);
+      statusEl.className = 'warn';
+      statusEl.textContent = msg;
+      warnTimer = setTimeout(() => { warnTimer = null; renderStatus(gameState); }, 1500);
+    }
+
+    function handleDrop(col) {
+      if (!myRole)                         return warn('Pick a player first!');
+      if (gameState.status !== 'playing')  return;
+      if (gameState.turn !== myRole)       return warn("It's " + (gameState.turn === 'R' ? 'Red' : 'Yellow') + "'s turn!");
+      ws.send(JSON.stringify({ game:'c4', type:'drop', col, player: myRole }));
+    }
+
+    let ws;
+    function connect() {
+      ws = new WebSocket(`ws://${window.location.host}`);
+      ws.onopen  = () => renderStatus(gameState);
+      ws.onclose = () => { statusEl.className=''; statusEl.textContent='Disconnected — retrying…'; setTimeout(connect, 3000); };
+      ws.onerror = () => ws.close();
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.game === 'c4' && data.type === 'state') renderState(data);
+      };
+    }
+    connect();
+  </script>
+</body>
+</html>

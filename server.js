@@ -7,7 +7,7 @@ const { networkInterfaces } = require('os');
 const PORT = 3000;
 
 // ─── Game registry ────────────────────────────────────────────────────────────
-const GAMES = ['00001', '00002', '00003', '00004'];
+const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007'];
 
 // ─── Cookie persistence ───────────────────────────────────────────────────────
 const DATA_DIR = path.join(__dirname, 'data');
@@ -48,6 +48,102 @@ function tttReset() {
   tttWinner = null;
   tttWinLine = null;
   broadcast(tttStateMsg());
+}
+
+// ─── Pong ─────────────────────────────────────────────────────────────────────
+const PW = 800, PH = 500;
+const PAD_H = 80, PAD_X = 18, PAD_SPD = 7;
+const BALL_R = 8, BALL_SPD0 = 5, BALL_MAX = 13, PONG_WIN = 7;
+
+function freshPong() {
+  return { ball: { x:PW/2, y:PH/2, vx:0, vy:0 }, pad: [PH/2, PH/2], dir: [0,0], score: [0,0], status: 'idle', winner: null };
+}
+let pong = freshPong();
+
+function pongStateMsg() {
+  return { game:'pong', type:'state', ball:pong.ball, pad:pong.pad, score:pong.score, status:pong.status, winner:pong.winner };
+}
+function broadcastPong() { broadcast(pongStateMsg()); }
+
+function pongServe() {
+  const a = (Math.random()*50 - 25) * Math.PI/180;
+  const s = Math.random() < 0.5 ? 1 : -1;
+  pong.ball = { x:PW/2, y:PH/2, vx: s*BALL_SPD0*Math.cos(a), vy: BALL_SPD0*Math.sin(a) };
+  pong.status = 'playing';
+  broadcastPong();
+}
+
+setInterval(() => {
+  if (pong.status !== 'playing') return;
+  pong.pad[0] = Math.max(PAD_H/2, Math.min(PH-PAD_H/2, pong.pad[0] + pong.dir[0]*PAD_SPD));
+  pong.pad[1] = Math.max(PAD_H/2, Math.min(PH-PAD_H/2, pong.pad[1] + pong.dir[1]*PAD_SPD));
+  pong.ball.x += pong.ball.vx;
+  pong.ball.y += pong.ball.vy;
+  if (pong.ball.y - BALL_R < 0)  { pong.ball.y = BALL_R;      pong.ball.vy =  Math.abs(pong.ball.vy); }
+  if (pong.ball.y + BALL_R > PH) { pong.ball.y = PH - BALL_R; pong.ball.vy = -Math.abs(pong.ball.vy); }
+  function padBounce(pi, facingLeft) {
+    const px = facingLeft ? PAD_X : PW - PAD_X;
+    const hit = facingLeft ? (pong.ball.vx < 0 && pong.ball.x - BALL_R <= px)
+                           : (pong.ball.vx > 0 && pong.ball.x + BALL_R >= px);
+    if (!hit) return;
+    if (Math.abs(pong.ball.y - pong.pad[pi]) >= PAD_H/2 + BALL_R) return;
+    const rel = (pong.ball.y - pong.pad[pi]) / (PAD_H/2);
+    const ang = Math.max(-65, Math.min(65, rel*65)) * Math.PI/180;
+    const spd = Math.min(Math.hypot(pong.ball.vx, pong.ball.vy) * 1.06, BALL_MAX);
+    pong.ball.vx = (facingLeft ? 1 : -1) * Math.cos(ang) * spd;
+    pong.ball.vy = Math.sin(ang) * spd;
+    pong.ball.x  = facingLeft ? px + BALL_R : px - BALL_R;
+  }
+  padBounce(0, true); padBounce(1, false);
+  let scorer = -1;
+  if (pong.ball.x < -30)    scorer = 1;
+  if (pong.ball.x > PW+30)  scorer = 0;
+  if (scorer >= 0) {
+    pong.score[scorer]++;
+    pong.status = 'scored';
+    broadcastPong();
+    if (pong.score[scorer] >= PONG_WIN) {
+      pong.winner = scorer; pong.status = 'won'; broadcastPong();
+      setTimeout(() => { pong = freshPong(); broadcastPong(); }, 3000);
+    } else {
+      setTimeout(pongServe, 1500);
+    }
+  } else {
+    broadcastPong();
+  }
+}, 1000/30);
+
+// ─── Connect Four ─────────────────────────────────────────────────────────────
+const C4C = 7, C4R = 6;
+function freshC4() {
+  return { board: Array(C4C*C4R).fill(null), turn:'R', status:'playing', winner:null, winCells:null };
+}
+let c4 = freshC4();
+
+function c4Check(b) {
+  const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+  for (let r=0; r<C4R; r++) for (let c=0; c<C4C; c++) {
+    const v = b[r*C4C+c]; if (!v) continue;
+    for (const [dc,dr] of dirs) {
+      const cells = [[c,r]];
+      for (let i=1; i<4; i++) {
+        const nc=c+dc*i, nr=r+dr*i;
+        if (nc<0||nc>=C4C||nr<0||nr>=C4R||b[nr*C4C+nc]!==v) break;
+        cells.push([nc,nr]);
+      }
+      if (cells.length===4) return { winner:v, cells };
+    }
+  }
+  return b.every(x=>x!==null) ? { draw:true } : null;
+}
+function c4StateMsg() { return { game:'c4', type:'state', ...c4 }; }
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+const CHAT_MAX = 100;
+let chatHistory = [];
+
+function chatMsg(name, text) {
+  return { game:'chat', type:'msg', name, text, time: Date.now() };
 }
 
 // ─── Colour game state ────────────────────────────────────────────────────────
@@ -131,6 +227,9 @@ wss.on('connection', (ws) => {
   console.log(`Player connected. Total: ${wss.clients.size}`);
   ws.send(JSON.stringify({ type: 'init', grid }));
   ws.send(JSON.stringify(tttStateMsg()));
+  ws.send(JSON.stringify(pongStateMsg()));
+  ws.send(JSON.stringify(c4StateMsg()));
+  ws.send(JSON.stringify({ game:'chat', type:'history', messages: chatHistory }));
 
   ws.on('message', (message) => {
     try {
@@ -174,6 +273,51 @@ wss.on('connection', (ws) => {
         } else {
           tttTurn = tttTurn === 'X' ? 'O' : 'X';
           broadcast(tttStateMsg());
+        }
+      }
+
+      // ── Pong ──
+      if (data.game === 'pong') {
+        if (data.type === 'start' && pong.status === 'idle') pongServe();
+        if (data.type === 'input') {
+          const pi = data.player;
+          if (pi === 0 || pi === 1) {
+            if (data.dir !== undefined) pong.dir[pi] = Math.sign(data.dir);
+            if (data.y  !== undefined) pong.pad[pi] = Math.max(PAD_H/2, Math.min(PH-PAD_H/2, data.y));
+          }
+        }
+      }
+
+      // ── Chat ──
+      if (data.game === 'chat' && data.type === 'msg') {
+        const name = String(data.name || 'Anonymous').slice(0, 24).trim() || 'Anonymous';
+        const text = String(data.text || '').slice(0, 500).trim();
+        if (!text) return;
+        const msg = chatMsg(name, text);
+        chatHistory.push(msg);
+        if (chatHistory.length > CHAT_MAX) chatHistory.shift();
+        broadcast(msg);
+      }
+
+      // ── Connect Four ──
+      if (data.game === 'c4' && data.type === 'drop') {
+        if (c4.status !== 'playing') return;
+        const col = data.col;
+        if (typeof col !== 'number' || col < 0 || col >= C4C) return;
+        if (data.player !== c4.turn) return;
+        let row = -1;
+        for (let r = C4R-1; r >= 0; r--) { if (!c4.board[r*C4C+col]) { row = r; break; } }
+        if (row < 0) return;
+        c4.board[row*C4C+col] = c4.turn;
+        const res = c4Check(c4.board);
+        if (res) {
+          if (res.draw) { c4.status='draw'; }
+          else { c4.status='won'; c4.winner=res.winner; c4.winCells=res.cells; }
+          broadcast(c4StateMsg());
+          setTimeout(() => { c4=freshC4(); broadcast(c4StateMsg()); }, 3000);
+        } else {
+          c4.turn = c4.turn==='R' ? 'Y' : 'R';
+          broadcast(c4StateMsg());
         }
       }
 
