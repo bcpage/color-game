@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>The Static</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    /*
+      Channels:
+      1 — pure white noise, fast
+      2 — slow static, cold blue tint, like bad reception
+      3 — normal static with a figure barely visible underneath
+      4 — horizontal banding interference, periodic darker rows
+      5 — looks normal. if you leave and come back, you are on channel 3.
+          nothing is said about this.
+    */
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Fredoka One', cursive;
+    }
+
+    /* ── TV set ── */
+    #tv {
+      position: relative;
+      width: 100vw;
+      max-width: min(100vh * 1.33, 100vw);
+      aspect-ratio: 4/3;
+      background: #000;
+      flex-shrink: 0;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      display: block;
+    }
+
+    /* CRT scanlines */
+    #scanlines {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.13) 0px,
+        rgba(0,0,0,0.13) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+      pointer-events: none;
+    }
+
+    /* CRT vignette */
+    #vignette {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        ellipse at center,
+        transparent 55%,
+        rgba(0,0,0,0.55) 100%
+      );
+      pointer-events: none;
+    }
+
+    /* Channel display */
+    #ch-display {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      font-size: clamp(0.65rem, 2vw, 0.9rem);
+      color: rgba(255,255,255,0.18);
+      letter-spacing: 3px;
+      pointer-events: none;
+      font-variant-numeric: tabular-nums;
+      transition: opacity 0.3s;
+    }
+
+    /* ── Controls ── */
+    #controls {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+
+    .ch-btn {
+      font-family: 'Fredoka One', cursive;
+      font-size: 0.75rem;
+      width: 32px;
+      height: 32px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 50%;
+      background: rgba(0,0,0,0.6);
+      color: rgba(255,255,255,0.25);
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .ch-btn:hover { border-color: rgba(255,255,255,0.4); color: rgba(255,255,255,0.6); }
+    .ch-btn.active { border-color: rgba(255,255,255,0.6); color: white; }
+  </style>
+</head>
+<body data-game="00016">
+
+<div id="tv">
+  <canvas id="canvas"></canvas>
+  <div id="scanlines"></div>
+  <div id="vignette"></div>
+  <div id="ch-display">CH 01</div>
+  <div id="controls">
+    <button class="ch-btn active" data-ch="1">1</button>
+    <button class="ch-btn" data-ch="2">2</button>
+    <button class="ch-btn" data-ch="3">3</button>
+    <button class="ch-btn" data-ch="4">4</button>
+    <button class="ch-btn" data-ch="5">5</button>
+  </div>
+</div>
+
+<script>
+// ── Canvas setup ──────────────────────────────────────────────────────────────
+// Render at 320×240 — coarser grain, authentic CRT look
+const W = 320, H = 240;
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width  = W;
+canvas.height = H;
+
+const imageData = ctx.createImageData(W, H);
+const pixels    = imageData.data;
+
+// ── Ghost figure (channel 3) ──────────────────────────────────────────────────
+// Pre-rendered silhouette: head + shoulders, dark fill at low opacity.
+// Visible only as a statistical shadow in the noise — you have to stare.
+const ghostCanvas = document.createElement('canvas');
+ghostCanvas.width = W; ghostCanvas.height = H;
+const gctx = ghostCanvas.getContext('2d');
+gctx.clearRect(0, 0, W, H);
+
+// Head
+gctx.fillStyle = 'rgba(0,0,0,0.55)';
+gctx.beginPath();
+gctx.arc(W * 0.5, H * 0.32, W * 0.075, 0, Math.PI * 2);
+gctx.fill();
+
+// Shoulders + torso
+gctx.beginPath();
+gctx.moveTo(W * 0.32, H * 0.42);
+gctx.lineTo(W * 0.68, H * 0.42);
+gctx.lineTo(W * 0.72, H * 0.80);
+gctx.lineTo(W * 0.28, H * 0.80);
+gctx.closePath();
+gctx.fill();
+
+const ghostImg  = gctx.getImageData(0, 0, W, H);
+const ghostPx   = ghostImg.data;
+
+// ── Audio ─────────────────────────────────────────────────────────────────────
+let audioCtx = null;
+let noiseGain = null;
+let humGain = null;
+let noiseSource = null;
+let humNode = null;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+  // White noise buffer (2 seconds, looped)
+  const bufSize = audioCtx.sampleRate * 2;
+  const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+  const ch = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) ch[i] = Math.random() * 2 - 1;
+
+  noiseSource = audioCtx.createBufferSource();
+  noiseSource.buffer = buf;
+  noiseSource.loop = true;
+  noiseGain = audioCtx.createGain();
+  noiseGain.gain.value = 0.06;
+  noiseSource.connect(noiseGain);
+  noiseGain.connect(audioCtx.destination);
+  noiseSource.start();
+
+  // 60Hz electrical hum
+  humNode = audioCtx.createOscillator();
+  humGain = audioCtx.createGain();
+  humNode.frequency.value = 60;
+  humNode.type = 'sine';
+  humGain.gain.value = 0.025;
+  humNode.connect(humGain);
+  humGain.connect(audioCtx.destination);
+  humNode.start();
+}
+
+// ── Channel state ─────────────────────────────────────────────────────────────
+let currentCh = 1;
+let frameCount = 0;
+let lastFrameTime = 0;
+let rafId = null;
+
+const CH_CONFIG = {
+  1: { fps: 60, r: 0,  g: 0,  b: 0,  ghost: false, bands: false },
+  2: { fps: 12, r: -8, g: -2, b: 18, ghost: false, bands: false },
+  3: { fps: 25, r: 0,  g: 0,  b: 0,  ghost: true,  bands: false },
+  4: { fps: 30, r: 0,  g: 0,  b: 0,  ghost: false, bands: true  },
+  5: { fps: 30, r: 0,  g: 0,  b: 0,  ghost: false, bands: false },
+};
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function drawStatic(cfg) {
+  const { r: tr, g: tg, b: tb, ghost, bands } = cfg;
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    let v = (Math.random() * 255) | 0;
+
+    if (bands) {
+      // Horizontal banding: every ~12 rows, darken
+      const row = ((i / 4) / W) | 0;
+      const band = Math.sin(row * 0.52 + frameCount * 0.04);
+      v = (v * (0.72 + band * 0.28)) | 0;
+    }
+
+    if (ghost) {
+      // Blend ghost silhouette — dark areas pull the noise darker
+      const ga = ghostPx[i + 3] / 255;
+      const gv = ghostPx[i];     // ghost pixel brightness (0 = dark shape)
+      v = (v * (1 - ga * 0.38) + gv * ga * 0.38) | 0;
+    }
+
+    pixels[i    ] = Math.max(0, Math.min(255, v + tr));
+    pixels[i + 1] = Math.max(0, Math.min(255, v + tg));
+    pixels[i + 2] = Math.max(0, Math.min(255, v + tb));
+    pixels[i + 3] = 255;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function loop(ts) {
+  rafId = requestAnimationFrame(loop);
+  const cfg = CH_CONFIG[currentCh];
+  const minGap = 1000 / cfg.fps;
+  if (ts - lastFrameTime < minGap) return;
+  lastFrameTime = ts;
+  frameCount++;
+  drawStatic(cfg);
+}
+
+// ── Channel switching ─────────────────────────────────────────────────────────
+function switchTo(ch) {
+  currentCh = ch;
+  document.getElementById('ch-display').textContent = 'CH 0' + ch;
+  document.querySelectorAll('.ch-btn').forEach(b => {
+    b.classList.toggle('active', parseInt(b.dataset.ch) === ch);
+  });
+}
+
+document.querySelectorAll('.ch-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    initAudio();
+    switchTo(parseInt(btn.dataset.ch));
+  });
+});
+
+// ── Channel 5 behavior ────────────────────────────────────────────────────────
+// When you tab away while on channel 5 and return, you are on channel 3.
+// Nothing is said about this.
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && currentCh === 5) {
+    switchTo(3);
+  }
+});
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+document.getElementById('tv').addEventListener('click', initAudio, { once: true });
+requestAnimationFrame(loop);
+</script>
+
+<script src="/shared/nav.js"></script>
+</body>
+</html>

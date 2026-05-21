@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Snake</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1a2e;
+      color: white;
+      font-family: 'Fredoka One', cursive;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: 16px;
+      gap: 16px;
+      overflow: hidden;
+    }
+
+    /* ── Score row ── */
+    #score-row {
+      display: flex;
+      gap: 32px;
+      font-size: clamp(0.9rem, 3vw, 1.1rem);
+      color: #666;
+      letter-spacing: 2px;
+    }
+    #score-row span { color: white; }
+
+    /* ── Canvas ── */
+    #canvas-wrap {
+      position: relative;
+      width: min(90vw, 90vh, 500px);
+      aspect-ratio: 1;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border: 1px solid #222;
+      border-radius: 4px;
+    }
+
+    /* ── Overlay (start / game over) ── */
+    #overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      background: rgba(26,26,46,0.88);
+      border-radius: 4px;
+    }
+
+    #overlay h2 {
+      font-size: clamp(1.4rem, 6vw, 2rem);
+      color: #e94560;
+      text-shadow: 0 0 16px rgba(233,69,96,0.5);
+      letter-spacing: 2px;
+    }
+
+    #overlay p {
+      font-size: clamp(0.8rem, 3vw, 1rem);
+      color: #666;
+      letter-spacing: 1px;
+      text-align: center;
+      padding: 0 20px;
+    }
+
+    #name-input {
+      font-family: 'Fredoka One', cursive;
+      font-size: 1rem;
+      padding: 8px 16px;
+      background: #0d0d1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: white;
+      text-align: center;
+      width: 160px;
+      outline: none;
+      display: none;
+    }
+    #name-input:focus { border-color: #555; }
+
+    #start-btn {
+      font-family: 'Fredoka One', cursive;
+      font-size: clamp(0.9rem, 3vw, 1.1rem);
+      padding: 12px 36px;
+      border: 2px solid #e94560;
+      border-radius: 30px;
+      background: transparent;
+      color: #e94560;
+      cursor: pointer;
+      letter-spacing: 1px;
+      transition: background 0.2s, color 0.2s;
+    }
+    #start-btn:hover { background: #e94560; color: white; }
+
+    /* ── Leaderboard ── */
+    #leaderboard {
+      width: min(90vw, 500px);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    #lb-label {
+      font-size: 0.65rem;
+      letter-spacing: 4px;
+      color: #333;
+      text-align: center;
+    }
+
+    .lb-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 4px 8px;
+      font-size: clamp(0.75rem, 2.5vw, 0.88rem);
+      color: #444;
+      border-bottom: 1px solid #1e1e32;
+    }
+    .lb-row:first-child { color: #e94560; }
+    .lb-row .lb-name { flex: 1; }
+    .lb-row .lb-score { font-variant-numeric: tabular-nums; color: #555; }
+    .lb-row:first-child .lb-score { color: #e94560; }
+
+    /* ── D-pad (mobile) ── */
+    #dpad {
+      display: none;
+      grid-template-columns: repeat(3, 44px);
+      grid-template-rows: repeat(3, 44px);
+      gap: 4px;
+    }
+
+    @media (pointer: coarse) { #dpad { display: grid; } }
+
+    .dpad-btn {
+      background: #0d0d1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #666;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    .dpad-btn:active { background: #1e1e3a; color: white; }
+    .dpad-center { visibility: hidden; }
+  </style>
+</head>
+<body data-game="00015">
+
+  <div id="score-row">
+    SCORE&nbsp;<span id="score-display">0</span>
+    &nbsp;&nbsp;
+    BEST&nbsp;<span id="best-display">0</span>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+    <div id="overlay">
+      <h2 id="overlay-title">SNAKE</h2>
+      <p id="overlay-msg">Use arrow keys or WASD to move.<br>Eat the food. Don't hit the walls.</p>
+      <input id="name-input" type="text" maxlength="16" placeholder="your name">
+      <button id="start-btn">Start</button>
+    </div>
+  </div>
+
+  <div id="dpad">
+    <div></div>
+    <button class="dpad-btn" data-dir="UP">▲</button>
+    <div></div>
+    <button class="dpad-btn" data-dir="LEFT">◀</button>
+    <div class="dpad-center"></div>
+    <button class="dpad-btn" data-dir="RIGHT">▶</button>
+    <div></div>
+    <button class="dpad-btn" data-dir="DOWN">▼</button>
+    <div></div>
+  </div>
+
+  <div id="leaderboard">
+    <div id="lb-label">LEADERBOARD</div>
+  </div>
+
+<script>
+// ── Constants ─────────────────────────────────────────────────────────────────
+const COLS = 25, ROWS = 25;
+const BASE_INTERVAL = 140; // ms per step at score 0
+const MIN_INTERVAL  = 55;
+
+// ── Canvas setup ──────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const PHYS = 500;
+canvas.width  = PHYS;
+canvas.height = PHYS;
+const CW = PHYS / COLS;
+const CH = PHYS / ROWS;
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let snake, dir, nextDir, food, score, best, gameLoop, running, dead;
+
+function init() {
+  snake   = [{ x: 12, y: 12 }, { x: 11, y: 12 }, { x: 10, y: 12 }];
+  dir     = { x: 1, y: 0 };
+  nextDir = { x: 1, y: 0 };
+  score   = 0;
+  dead    = false;
+  running = false;
+  spawnFood();
+  render();
+}
+
+function spawnFood() {
+  const occupied = new Set(snake.map(s => s.x + ',' + s.y));
+  let f;
+  do { f = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) }; }
+  while (occupied.has(f.x + ',' + f.y));
+  food = f;
+}
+
+// ── Speed ─────────────────────────────────────────────────────────────────────
+function interval() {
+  return Math.max(MIN_INTERVAL, BASE_INTERVAL - score * 3);
+}
+
+// ── Game loop ─────────────────────────────────────────────────────────────────
+function step() {
+  dir = { ...nextDir };
+  const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+  // Wall collision
+  if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS) { gameOver(); return; }
+
+  // Self collision
+  if (snake.some(s => s.x === head.x && s.y === head.y)) { gameOver(); return; }
+
+  snake.unshift(head);
+
+  if (head.x === food.x && head.y === food.y) {
+    score++;
+    document.getElementById('score-display').textContent = score;
+    if (score > best) {
+      best = score;
+      document.getElementById('best-display').textContent = best;
+      localStorage.setItem('snake_best', best);
+    }
+    spawnFood();
+    // Restart loop at new speed
+    clearInterval(gameLoop);
+    gameLoop = setInterval(step, interval());
+  } else {
+    snake.pop();
+  }
+
+  render();
+}
+
+function gameOver() {
+  running = false;
+  dead = true;
+  clearInterval(gameLoop);
+  render();
+  submitScore(score);
+  showOverlay('GAME OVER', 'Score: ' + score, true);
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render() {
+  // Background
+  ctx.fillStyle = '#0d0d1a';
+  ctx.fillRect(0, 0, PHYS, PHYS);
+
+  // Grid (subtle)
+  ctx.strokeStyle = '#111122';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x <= COLS; x++) { ctx.beginPath(); ctx.moveTo(x * CW, 0); ctx.lineTo(x * CW, PHYS); ctx.stroke(); }
+  for (let y = 0; y <= ROWS; y++) { ctx.beginPath(); ctx.moveTo(0, y * CH); ctx.lineTo(PHYS, y * CH); ctx.stroke(); }
+
+  // Food
+  if (food) {
+    ctx.fillStyle = '#e94560';
+    const px = food.x * CW + 2, py = food.y * CH + 2;
+    const fw = CW - 4, fh = CH - 4;
+    ctx.beginPath();
+    ctx.roundRect(px, py, fw, fh, 3);
+    ctx.fill();
+  }
+
+  // Snake
+  snake.forEach((seg, i) => {
+    const t = i / snake.length;
+    const r = Math.round(40 + (80 - 40) * (1 - t));
+    const g = Math.round(200 + (255 - 200) * (1 - t));
+    const b = Math.round(80 + (120 - 80) * (1 - t));
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    const px = seg.x * CW + 1, py = seg.y * CH + 1;
+    ctx.beginPath();
+    ctx.roundRect(px, py, CW - 2, CH - 2, i === 0 ? 4 : 2);
+    ctx.fill();
+  });
+}
+
+// ── Overlay ───────────────────────────────────────────────────────────────────
+function showOverlay(title, msg, showName) {
+  document.getElementById('overlay-title').textContent = title;
+  document.getElementById('overlay-msg').innerHTML = msg;
+  document.getElementById('name-input').style.display = showName ? 'block' : 'none';
+  document.getElementById('start-btn').textContent = showName ? 'Play Again' : 'Start';
+  document.getElementById('overlay').style.display = 'flex';
+}
+
+function hideOverlay() {
+  document.getElementById('overlay').style.display = 'none';
+}
+
+document.getElementById('start-btn').addEventListener('click', () => {
+  hideOverlay();
+  init();
+  running = true;
+  clearInterval(gameLoop);
+  gameLoop = setInterval(step, interval());
+});
+
+// ── Input ─────────────────────────────────────────────────────────────────────
+const DIR_MAP = {
+  ArrowUp:    { x:  0, y: -1 }, w: { x:  0, y: -1 }, W: { x:  0, y: -1 },
+  ArrowDown:  { x:  0, y:  1 }, s: { x:  0, y:  1 }, S: { x:  0, y:  1 },
+  ArrowLeft:  { x: -1, y:  0 }, a: { x: -1, y:  0 }, A: { x: -1, y:  0 },
+  ArrowRight: { x:  1, y:  0 }, d: { x:  1, y:  0 }, D: { x:  1, y:  0 },
+};
+const DPAD_MAP = { UP: { x: 0, y: -1 }, DOWN: { x: 0, y: 1 }, LEFT: { x: -1, y: 0 }, RIGHT: { x: 1, y: 0 } };
+
+function setDir(d) {
+  if (!running) return;
+  // Prevent reversing
+  if (d.x !== 0 && d.x === -dir.x) return;
+  if (d.y !== 0 && d.y === -dir.y) return;
+  nextDir = d;
+}
+
+document.addEventListener('keydown', e => {
+  const d = DIR_MAP[e.key];
+  if (d) { e.preventDefault(); setDir(d); }
+});
+
+document.querySelectorAll('.dpad-btn').forEach(btn => {
+  btn.addEventListener('touchstart', e => { e.preventDefault(); setDir(DPAD_MAP[btn.dataset.dir]); }, { passive: false });
+  btn.addEventListener('mousedown', () => setDir(DPAD_MAP[btn.dataset.dir]));
+});
+
+// Swipe support
+let touchStart = null;
+canvas.addEventListener('touchstart', e => { touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }, { passive: true });
+canvas.addEventListener('touchend', e => {
+  if (!touchStart) return;
+  const dx = e.changedTouches[0].clientX - touchStart.x;
+  const dy = e.changedTouches[0].clientY - touchStart.y;
+  if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+  if (Math.abs(dx) > Math.abs(dy)) setDir({ x: dx > 0 ? 1 : -1, y: 0 });
+  else setDir({ x: 0, y: dy > 0 ? 1 : -1 });
+  touchStart = null;
+}, { passive: true });
+
+// ── Score submission ───────────────────────────────────────────────────────────
+function submitScore(s) {
+  if (s === 0) return;
+  const name = document.getElementById('name-input').value.trim() || 'Anonymous';
+  fetch('/api/snake/score', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, score: s }),
+  }).catch(() => {});
+}
+
+// ── Leaderboard ───────────────────────────────────────────────────────────────
+function renderLB(scores) {
+  const lb = document.getElementById('leaderboard');
+  const label = document.getElementById('lb-label');
+  lb.innerHTML = '';
+  lb.appendChild(label);
+  if (!scores.length) return;
+  scores.forEach(({ name, score }) => {
+    const row = document.createElement('div');
+    row.className = 'lb-row';
+    row.innerHTML = `<span class="lb-name">${name}</span><span class="lb-score">${score}</span>`;
+    lb.appendChild(row);
+  });
+}
+
+fetch('/api/snake/scores').then(r => r.json()).then(renderLB).catch(() => {});
+
+// Live leaderboard via WebSocket
+let ws;
+function connect() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host);
+  ws.addEventListener('message', e => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.game === 'snake' && data.type === 'scores') renderLB(data.scores);
+    } catch (_) {}
+  });
+  ws.addEventListener('close', () => setTimeout(connect, 2000));
+}
+connect();
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+best = parseInt(localStorage.getItem('snake_best') || '0');
+document.getElementById('best-display').textContent = best;
+init();
+</script>
+
+<script src="/shared/nav.js"></script>
+</body>
+</html>

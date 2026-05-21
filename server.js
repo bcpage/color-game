@@ -7,7 +7,7 @@ const { networkInterfaces } = require('os');
 const PORT = 3000;
 
 // ─── Game registry ────────────────────────────────────────────────────────────
-const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '00009', '00010', '00011', '00012', '00013', '00014'];
+const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '00009', '00010', '00011', '00012', '00013', '00014', '00015', '00016', '00017'];
 
 // ─── Cookie persistence ───────────────────────────────────────────────────────
 const COOKIE_DATA_DIR = path.join(__dirname, 'public', 'games', '00002', 'data');
@@ -28,6 +28,14 @@ const REC_MAX_CLIPS = 50;
 let cookieCount = 0;
 try { cookieCount = JSON.parse(fs.readFileSync(COOKIE_FILE, 'utf8')).count || 0; } catch (e) {}
 function saveCookie() { fs.writeFileSync(COOKIE_FILE, JSON.stringify({ count: cookieCount })); }
+
+// ─── Snake leaderboard ───────────────────────────────────────────────────────
+const SNAKE_DATA_DIR = path.join(__dirname, 'public', 'games', '00015', 'data');
+const SNAKE_FILE = path.join(SNAKE_DATA_DIR, 'scores.json');
+if (!fs.existsSync(SNAKE_DATA_DIR)) fs.mkdirSync(SNAKE_DATA_DIR, { recursive: true });
+let snakeScores = [];
+try { snakeScores = JSON.parse(fs.readFileSync(SNAKE_FILE, 'utf8')); } catch (e) {}
+function saveSnake() { fs.writeFileSync(SNAKE_FILE, JSON.stringify(snakeScores)); }
 
 // ─── 52! card shuffle counter ────────────────────────────────────────────────
 const CARD_DATA_DIR = path.join(__dirname, 'public', 'games', '00014', 'data');
@@ -326,6 +334,30 @@ const httpServer = http.createServer((req, res) => {
     try { fs.unlinkSync(path.join(REC_DIR, filename)); } catch (_) {}
     broadcast({ game:'rec', type:'deleted', filename });
     sendJSON(res, { ok: true });
+    return;
+  }
+
+  // API: snake scores
+  if (pathname === '/api/snake/scores' && method === 'GET') {
+    sendJSON(res, snakeScores.slice(0, 10));
+    return;
+  }
+  if (pathname === '/api/snake/score' && method === 'POST') {
+    let body = '';
+    req.on('data', d => { body += d; });
+    req.on('end', () => {
+      try {
+        const { name, score } = JSON.parse(body);
+        const n = String(name || 'Anonymous').slice(0, 16).trim() || 'Anonymous';
+        const s = Math.max(0, Math.min(99999, parseInt(score) || 0));
+        snakeScores.push({ name: n, score: s, ts: Date.now() });
+        snakeScores.sort((a, b) => b.score - a.score);
+        if (snakeScores.length > 100) snakeScores.length = 100;
+        saveSnake();
+        broadcast({ game: 'snake', type: 'scores', scores: snakeScores.slice(0, 10) });
+        sendJSON(res, { ok: true, rank: snakeScores.findIndex(e => e.score === s && e.name === n) + 1 });
+      } catch (e) { res.writeHead(400); res.end(); }
+    });
     return;
   }
 

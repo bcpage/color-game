@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>The Candle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #07070f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      font-family: 'Fredoka One', cursive;
+      gap: 16px;
+    }
+
+    canvas {
+      display: block;
+      /* Scale to fit without distortion */
+      max-height: calc(100dvh - 80px);
+      max-width: 100vw;
+      width: auto;
+      height: auto;
+    }
+
+    #footer {
+      font-size: clamp(0.65rem, 2vw, 0.78rem);
+      color: #1e1e2a;
+      letter-spacing: 2px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body data-game="00017">
+  <canvas id="canvas" width="320" height="560"></canvas>
+  <div id="footer">It has been burning since midnight. It will burn until midnight.</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+const W = 320, H = 560;
+
+// ── Candle geometry (fixed reference points) ──────────────────────────────────
+const CX       = W / 2;
+const CANDLE_W = 52;
+const HOLDER_Y = H - 70;   // top of holder
+const HOLDER_H = 28;
+const FULL_TOP = 105;       // candle top when fully unburned (midnight)
+const MAX_H    = HOLDER_Y - FULL_TOP; // total burnable height in px
+
+// ── Wax drips ─────────────────────────────────────────────────────────────────
+const drips = [];
+
+function maybeSpawnDrip(candleTop) {
+  if (drips.length >= 6 || Math.random() > 0.004) return;
+  const side = Math.random() < 0.5 ? -1 : 1;
+  drips.push({
+    x:    CX + side * (CANDLE_W / 2 - 1),
+    y:    candleTop + 8,
+    vy:   0.06 + Math.random() * 0.06,
+    r:    2.5 + Math.random() * 1.5,
+    maxY: HOLDER_Y - 4,
+    settled: false,
+    age:  0,
+  });
+}
+
+function updateDrips(candleTop) {
+  for (let i = drips.length - 1; i >= 0; i--) {
+    const d = drips[i];
+    // If candle has burned past drip start, remove
+    if (d.y < candleTop) { drips.splice(i, 1); continue; }
+    if (!d.settled) {
+      d.y += d.vy;
+      if (d.y >= d.maxY) d.settled = true;
+    }
+    d.age++;
+    // Remove after a long while so they don't pile up forever
+    if (d.settled && d.age > 18000) drips.splice(i, 1);
+  }
+}
+
+// ── Progress: 0 = midnight (full), 1 = 23:59:59 (stub) ───────────────────────
+function getProgress() {
+  const now = new Date();
+  const secs = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds()
+               + now.getMilliseconds() / 1000;
+  return secs / 86400;
+}
+
+// ── Draw ──────────────────────────────────────────────────────────────────────
+let frameTime = 0;
+
+function draw(ts) {
+  const t        = ts / 1000;
+  const progress = getProgress();
+  const burnedPx = MAX_H * progress;
+  const candleH  = MAX_H - burnedPx;
+  const candleTop = HOLDER_Y - candleH;
+
+  // Flame flicker parameters
+  const sway    = Math.sin(t * 2.3) * 2.8 + Math.sin(t * 5.1) * 1.1 + Math.sin(t * 11.7) * 0.5;
+  const flicker = 1 + Math.sin(t * 3.8) * 0.07 + Math.sin(t * 8.3) * 0.04;
+  const flameFull = 34 * flicker;
+  // Candle almost out: flame shrinks and gutters more
+  const remaining = 1 - progress;
+  const flameH  = flameFull * Math.min(1, remaining * 10); // shrinks in last 10%
+  const flameW  = 13 * Math.min(1, remaining * 8);
+  const flameTip = { x: CX + sway, y: candleTop - flameH };
+  const flameBase = { x: CX, y: candleTop + 3 };
+
+  // ── Clear ──
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#07070f';
+  ctx.fillRect(0, 0, W, H);
+
+  // ── Glow from flame ──
+  if (flameH > 1) {
+    const glowY   = flameTip.y + flameH * 0.4;
+    const glowR   = 180 * Math.min(1, remaining * 5);
+    const grd = ctx.createRadialGradient(CX, glowY, 0, CX, glowY, glowR);
+    grd.addColorStop(0,   'rgba(255,160,30,0.13)');
+    grd.addColorStop(0.4, 'rgba(255,90,0,0.06)');
+    grd.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // ── Holder ──
+  const hx = CX - CANDLE_W / 2 - 10;
+  const hGrd = ctx.createLinearGradient(hx, 0, hx + CANDLE_W + 20, 0);
+  hGrd.addColorStop(0,   '#1a1a28');
+  hGrd.addColorStop(0.5, '#2e2e40');
+  hGrd.addColorStop(1,   '#1a1a28');
+  ctx.fillStyle = hGrd;
+  ctx.beginPath();
+  ctx.roundRect(hx, HOLDER_Y, CANDLE_W + 20, HOLDER_H, [0, 0, 6, 6]);
+  ctx.fill();
+  // Holder rim highlight
+  ctx.strokeStyle = 'rgba(80,80,100,0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(hx + 4, HOLDER_Y);
+  ctx.lineTo(hx + CANDLE_W + 16, HOLDER_Y);
+  ctx.stroke();
+
+  // ── Candle body ──
+  if (candleH > 0) {
+    const bodyGrd = ctx.createLinearGradient(CX - CANDLE_W/2, 0, CX + CANDLE_W/2, 0);
+    bodyGrd.addColorStop(0,    '#c8c0a0');
+    bodyGrd.addColorStop(0.25, '#ede8d4');
+    bodyGrd.addColorStop(0.75, '#e8e2cc');
+    bodyGrd.addColorStop(1,    '#b8b098');
+    ctx.fillStyle = bodyGrd;
+    ctx.beginPath();
+    ctx.roundRect(CX - CANDLE_W/2, candleTop, CANDLE_W, candleH, [3, 3, 0, 0]);
+    ctx.fill();
+
+    // Subtle vertical shadow line
+    ctx.fillStyle = 'rgba(0,0,0,0.06)';
+    ctx.fillRect(CX + CANDLE_W/2 - 10, candleTop, 10, candleH);
+
+    // Melted wax pool at top (concave look)
+    const poolGrd = ctx.createRadialGradient(CX, candleTop + 4, 2, CX, candleTop + 4, CANDLE_W/2);
+    poolGrd.addColorStop(0,   '#d4ccaa');
+    poolGrd.addColorStop(0.6, '#ddd6bc');
+    poolGrd.addColorStop(1,   '#c8c0a0');
+    ctx.fillStyle = poolGrd;
+    ctx.beginPath();
+    ctx.ellipse(CX, candleTop + 4, CANDLE_W/2, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wick
+    if (flameH > 0.5) {
+      ctx.strokeStyle = '#2a2010';
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(CX, candleTop + 4);
+      ctx.lineTo(CX + sway * 0.3, candleTop - 6);
+      ctx.stroke();
+    }
+  }
+
+  // ── Wax drips ──
+  updateDrips(candleTop);
+  maybeSpawnDrip(candleTop);
+  ctx.fillStyle = 'rgba(232, 226, 204, 0.82)';
+  drips.forEach(d => {
+    // Trail
+    ctx.beginPath();
+    ctx.moveTo(d.x - d.r * 0.45, d.y - d.r * 2);
+    ctx.lineTo(d.x + d.r * 0.45, d.y - d.r * 2);
+    ctx.lineTo(d.x + d.r * 0.35, d.y);
+    ctx.lineTo(d.x - d.r * 0.35, d.y);
+    ctx.closePath();
+    ctx.fill();
+    // Droplet
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // ── Flame ──
+  if (flameH > 1) {
+    // Outer flame
+    const outerGrd = ctx.createRadialGradient(
+      CX + sway * 0.5, flameTip.y + flameH * 0.5, 0,
+      CX + sway * 0.5, flameTip.y + flameH * 0.5, flameH
+    );
+    outerGrd.addColorStop(0,   'rgba(255,230,80,0.85)');
+    outerGrd.addColorStop(0.35,'rgba(255,140,10,0.7)');
+    outerGrd.addColorStop(0.7, 'rgba(220,40,0,0.4)');
+    outerGrd.addColorStop(1,   'rgba(180,0,0,0)');
+
+    ctx.beginPath();
+    ctx.moveTo(flameBase.x - flameW, flameBase.y);
+    ctx.quadraticCurveTo(flameBase.x - flameW * 1.1, flameTip.y + flameH * 0.45, flameTip.x, flameTip.y);
+    ctx.quadraticCurveTo(flameBase.x + flameW * 1.1, flameTip.y + flameH * 0.45, flameBase.x + flameW, flameBase.y);
+    ctx.closePath();
+    ctx.fillStyle = outerGrd;
+    ctx.fill();
+
+    // Inner flame
+    const iH = flameH * 0.62;
+    const iW = flameW * 0.45;
+    const innerGrd = ctx.createRadialGradient(
+      CX + sway * 0.3, flameBase.y - iH * 0.4, 0,
+      CX + sway * 0.3, flameBase.y - iH * 0.4, iH
+    );
+    innerGrd.addColorStop(0,   'rgba(255,255,240,1)');
+    innerGrd.addColorStop(0.4, 'rgba(255,240,120,0.9)');
+    innerGrd.addColorStop(1,   'rgba(255,160,0,0)');
+
+    ctx.beginPath();
+    ctx.moveTo(flameBase.x - iW, flameBase.y);
+    ctx.quadraticCurveTo(flameBase.x - iW * 0.9, flameBase.y - iH * 0.55, flameTip.x, flameTip.y + flameH * 0.12);
+    ctx.quadraticCurveTo(flameBase.x + iW * 0.9, flameBase.y - iH * 0.55, flameBase.x + iW, flameBase.y);
+    ctx.closePath();
+    ctx.fillStyle = innerGrd;
+    ctx.fill();
+  }
+
+  requestAnimationFrame(draw);
+}
+
+requestAnimationFrame(draw);
+</script>
+
+<script src="/shared/nav.js"></script>
+</body>
+</html>
