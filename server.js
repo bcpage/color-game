@@ -7,7 +7,7 @@ const { networkInterfaces } = require('os');
 const PORT = 3000;
 
 // ─── Game registry ────────────────────────────────────────────────────────────
-const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '00009', '00010', '00011', '00012', '00013', '00014', '00015', '00016', '00017', '00018', '00019', '00020', '00021', '00022', '00023', '00024', '00025', '00026', '00027', '00028', '00029', '00030', '00031', '00032', '00033', '00034', '00035', '00036', '00037', '00038', '00039', '00040', '00041', '00042', '00043', '00044', '00045', '00046', '00047', '00048', '00049', '00050'];
+const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '00009', '00010', '00011', '00012', '00013', '00014', '00015', '00016', '00017', '00018', '00019', '00020', '00021', '00022', '00023', '00024', '00025', '00026', '00027', '00028', '00029', '00030', '00031', '00032', '00033', '00034', '00035', '00036', '00037', '00038', '00039', '00040', '00041', '00042', '00043', '00044', '00045', '00046', '00047', '00048', '00049', '00050', '00051'];
 
 // ─── Matrix navigation ────────────────────────────────────────────────────────
 const MATRIX_FILE = path.join(__dirname, 'data', 'matrix.json');
@@ -555,6 +555,28 @@ const httpServer = http.createServer((req, res) => {
   // API: current user record
   if (pathname === '/api/user/me' && method === 'GET') {
     sendJSON(res, users[deviceId] || { firstSeen: null, cookieClicks: 0, name: null });
+    return;
+  }
+
+  // API: set designation
+  if (pathname === '/api/user/name' && method === 'POST') {
+    let body = '';
+    req.on('data', d => { body += d; });
+    req.on('end', () => {
+      try {
+        const { name } = JSON.parse(body);
+        const trimmed = String(name || '').trim().slice(0, 24);
+        if (!trimmed) { res.writeHead(400); res.end(JSON.stringify({ error: 'DESIGNATION CANNOT BE EMPTY.' })); return; }
+        const u = users[deviceId];
+        if (u && u.name && u.name !== trimmed) {
+          if (!u.aliases) u.aliases = [];
+          if (!u.aliases.includes(u.name)) u.aliases.push(u.name);
+        }
+        users[deviceId].name = trimmed;
+        saveUsers();
+        sendJSON(res, { ok: true, name: trimmed });
+      } catch (e) { res.writeHead(400); res.end(); }
+    });
     return;
   }
 

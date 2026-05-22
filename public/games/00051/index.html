@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — PROCESS INTERRUPTED</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0a;
+      color: #555;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    body.nav-locked #matrix-nav { display: none !important; }
+    #room {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+    #panel { max-width: 520px; width: 100%; }
+    #error-header {
+      color: #e94560;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    #error-badge {
+      background: #e94560;
+      color: #0a0a0a;
+      font-weight: bold;
+      padding: 1px 7px;
+      font-size: 12px;
+      letter-spacing: 0;
+      flex-shrink: 0;
+    }
+    #msg-block {
+      border-left: 2px solid #1a1a1a;
+      padding-left: 14px;
+      margin-bottom: 24px;
+      line-height: 2;
+    }
+    #msg-code { color: #e94560; }
+    #log-block { margin-bottom: 24px; line-height: 2.1; }
+    .log-row { display: flex; gap: 0; }
+    .log-key {
+      color: #2e2e2e;
+      min-width: 80px;
+      flex-shrink: 0;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-size: 11px;
+    }
+    .log-val { color: #555; letter-spacing: 0.03em; word-break: break-all; }
+    hr#divider { border: none; border-top: 1px solid #141414; margin-bottom: 20px; }
+    #returning-notice {
+      display: none;
+      margin-bottom: 14px;
+      font-size: 11px;
+      color: #2e2e2e;
+      letter-spacing: 0.05em;
+    }
+    #returning-notice span { color: #555; }
+    .field-label {
+      color: #2e2e2e;
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+    #name-input {
+      width: 100%;
+      background: #080808;
+      border: 1px solid #1a1a1a;
+      color: #aaa;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 14px;
+      padding: 9px 12px;
+      outline: none;
+      letter-spacing: 0.05em;
+      margin-bottom: 16px;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    #name-input:focus { border-color: #3a1212; color: #ccc; }
+    #name-input.locked { color: #2a2a2a; border-color: #111; pointer-events: none; }
+    #verify-btn {
+      background: #0a0a0a;
+      border: 1px solid #222;
+      color: #3a3a3a;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      padding: 10px 16px;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    #verify-btn:hover:not(:disabled):not(.verified) { border-color: #555; color: #888; }
+    #verify-btn.verified { border-color: #1a3a1a; color: #4a9a4a; background: #080e08; cursor: default; }
+    #verify-btn:disabled:not(.verified) { opacity: 0.3; cursor: default; }
+    #status {
+      margin-top: 10px;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: #e94560;
+      min-height: 14px;
+    }
+  </style>
+</head>
+<body data-game="00051" data-nav="matrix" class="nav-locked">
+  <div id="room">
+    <div id="panel">
+
+      <div id="error-header">
+        <span id="error-badge">!</span>
+        <span>PROCESS INTERRUPTED</span>
+      </div>
+
+      <div id="msg-block">
+        <div><span id="msg-code">MSG: SUBJ-006</span> — Subject designation not on file.</div>
+        <div>Terminal cannot process requests from</div>
+        <div>undesignated subjects.</div>
+        <div>&nbsp;</div>
+        <div>This condition must be resolved before</div>
+        <div>processing can continue.</div>
+      </div>
+
+      <div id="log-block">
+        <div class="log-row">
+          <span class="log-key">DEVICE</span>
+          <span class="log-val" id="log-device">—</span>
+        </div>
+        <div class="log-row">
+          <span class="log-key">TIME</span>
+          <span class="log-val" id="log-time">—</span>
+        </div>
+      </div>
+
+      <hr id="divider">
+
+      <div id="returning-notice">EXISTING DESIGNATION: <span id="current-name-display"></span></div>
+
+      <div class="field-label">Designation</div>
+      <input id="name-input" type="text" maxlength="24" autocomplete="off" spellcheck="false" placeholder="enter designation...">
+
+      <button id="verify-btn" disabled>My name is my passport. Verify me.</button>
+      <div id="status"></div>
+
+    </div>
+  </div>
+
+  <script src="/shared/nav.js"></script>
+  <script>
+    const input   = document.getElementById('name-input');
+    const btn     = document.getElementById('verify-btn');
+    const status  = document.getElementById('status');
+    const logDev  = document.getElementById('log-device');
+    const logTime = document.getElementById('log-time');
+    const returning         = document.getElementById('returning-notice');
+    const currentNameDisplay = document.getElementById('current-name-display');
+
+    function fmtTime(ts) {
+      const d = new Date(ts);
+      return d.getFullYear() + '-' +
+        String(d.getMonth()+1).padStart(2,'0') + '-' +
+        String(d.getDate()).padStart(2,'0') + ' ' +
+        String(d.getHours()).padStart(2,'0') + ':' +
+        String(d.getMinutes()).padStart(2,'0') + ':' +
+        String(d.getSeconds()).padStart(2,'0');
+    }
+
+    logTime.textContent = fmtTime(Date.now());
+
+    // Show real cookie UUID
+    const cookieMatch = document.cookie.match(/(?:^|;\s*)device=([a-f0-9-]{36})/);
+    if (cookieMatch) logDev.textContent = cookieMatch[1];
+
+    // Load user record — unlock nav if already named (returning user)
+    fetch('/api/user/me').then(r => r.json()).then(u => {
+      if (u.firstSeen) logTime.textContent = fmtTime(u.firstSeen);
+      if (u.name) {
+        returning.style.display = '';
+        currentNameDisplay.textContent = u.name;
+        input.placeholder = 'enter new designation...';
+        document.body.classList.remove('nav-locked');
+      }
+    });
+
+    input.addEventListener('input', () => {
+      btn.disabled = input.value.trim().length === 0;
+    });
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !btn.disabled) submit();
+    });
+
+    btn.addEventListener('click', () => { if (!btn.disabled) submit(); });
+
+    function submit() {
+      const val = input.value.trim();
+      if (!val) return;
+      btn.disabled = true;
+      input.classList.add('locked');
+      status.textContent = '';
+
+      fetch('/api/user/name', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: val })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          btn.textContent = `${data.name} is your passport. You have been verified.`;
+          btn.classList.add('verified');
+          returning.style.display = '';
+          currentNameDisplay.textContent = data.name;
+          setTimeout(() => {
+            document.body.classList.remove('nav-locked');
+          }, 1800);
+        } else {
+          status.textContent = data.error || 'ERROR. TRY AGAIN.';
+          input.classList.remove('locked');
+          btn.disabled = input.value.trim().length === 0;
+        }
+      })
+      .catch(() => {
+        status.textContent = 'CONNECTION FAILURE.';
+        input.classList.remove('locked');
+        btn.disabled = input.value.trim().length === 0;
+      });
+    }
+  </script>
+</body>
+</html>
