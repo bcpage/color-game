@@ -666,6 +666,23 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
+  // API: delete a single user
+  const userDeleteMatch = pathname.match(/^\/api\/users\/([a-f0-9-]{36})$/);
+  if (userDeleteMatch && method === 'DELETE') {
+    const id = userDeleteMatch[1];
+    if (users[id]) { delete users[id]; saveUsers(); }
+    sendJSON(res, { ok: true });
+    return;
+  }
+
+  // API: clear all users
+  if (pathname === '/api/users' && method === 'DELETE') {
+    users = {};
+    saveUsers();
+    sendJSON(res, { ok: true });
+    return;
+  }
+
   res.writeHead(404);
   res.end('Not found');
 });

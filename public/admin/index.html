@@ -26,7 +26,7 @@
     #toolbar-title { color: #fff; font-weight: bold; letter-spacing: 0.1em; }
     #toolbar-sub { color: #555; font-size: 11px; }
     #toolbar-count { color: #888; font-size: 11px; margin-left: auto; }
-    #refresh-btn {
+    .tb-btn {
       background: #222;
       border: 1px solid #444;
       color: #888;
@@ -35,7 +35,18 @@
       padding: 3px 10px;
       cursor: pointer;
     }
-    #refresh-btn:hover { border-color: #888; color: #ccc; }
+    .tb-btn:hover { border-color: #888; color: #ccc; }
+    .tb-btn.danger:hover { border-color: #e94560; color: #e94560; }
+    .del-btn {
+      background: transparent;
+      border: 1px solid #2a2a2a;
+      color: #333;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      padding: 1px 6px;
+      cursor: pointer;
+    }
+    .del-btn:hover { border-color: #e94560; color: #e94560; }
     #table-wrap { overflow-x: auto; padding-bottom: 28px; }
     table { width: 100%; border-collapse: collapse; min-width: 1100px; }
     thead tr { background: #111; border-bottom: 2px solid #333; }
@@ -86,13 +97,15 @@
       <div id="toolbar-sub">Transaction: /admin &nbsp;|&nbsp; ALV Grid Report &nbsp;|&nbsp; Auto-refresh: 30s</div>
     </div>
     <div id="toolbar-count"></div>
-    <button id="refresh-btn" onclick="load()">Refresh (F5)</button>
+    <button class="tb-btn" onclick="load()">Refresh</button>
+    <button class="tb-btn danger" onclick="clearAll()">Clear All</button>
   </div>
 
   <div id="table-wrap">
     <table>
       <thead>
         <tr>
+          <th></th>
           <th>#</th>
           <th>Cookie ID</th>
           <th>IP Address</th>
@@ -159,7 +172,9 @@
             users.forEach((u, i) => {
               const rooms = (u.rooms || []).join(' ');
               const tr = document.createElement('tr');
+              tr.id = 'row-' + u.id;
               tr.innerHTML = `
+                <td><button class="del-btn" onclick="delUser('${esc(u.id)}')">✕</button></td>
                 <td class="dim">${String(i+1).padStart(5,'0')}</td>
                 <td class="dimmer">${esc(u.id)}</td>
                 <td>${esc(u.ip || '—')}</td>
@@ -184,6 +199,20 @@
           document.getElementById('status-loaded').textContent = `${count} record${count !== 1 ? 's' : ''} loaded`;
           document.getElementById('status-time').textContent = `Last refresh: ${fmt(Date.now())}`;
         });
+    }
+
+    function delUser(id) {
+      fetch('/api/users/' + id, { method: 'DELETE' })
+        .then(() => {
+          const row = document.getElementById('row-' + id);
+          if (row) row.remove();
+          load();
+        });
+    }
+
+    function clearAll() {
+      if (!confirm('Delete all user records?')) return;
+      fetch('/api/users', { method: 'DELETE' }).then(() => load());
     }
 
     load();
