@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — User Registry</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0a0a0a;
+      color: #ccc;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      padding: 0;
+    }
+    #toolbar {
+      background: #1a1a1a;
+      border-bottom: 1px solid #333;
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    #toolbar-title { color: #fff; font-weight: bold; letter-spacing: 0.1em; }
+    #toolbar-sub { color: #555; font-size: 11px; }
+    #toolbar-count { color: #888; font-size: 11px; margin-left: auto; }
+    #refresh-btn {
+      background: #222;
+      border: 1px solid #444;
+      color: #888;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      padding: 3px 10px;
+      cursor: pointer;
+    }
+    #refresh-btn:hover { border-color: #888; color: #ccc; }
+    #table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+    }
+    thead tr {
+      background: #111;
+      border-bottom: 2px solid #333;
+    }
+    th {
+      text-align: left;
+      padding: 6px 12px;
+      color: #555;
+      font-weight: normal;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      border-right: 1px solid #1a1a1a;
+    }
+    td {
+      padding: 5px 12px;
+      border-bottom: 1px solid #111;
+      border-right: 1px solid #111;
+      white-space: nowrap;
+      color: #aaa;
+    }
+    tr:hover td { background: #0f0f0f; }
+    .col-id { color: #555; font-size: 11px; }
+    .col-unix { color: #444; }
+    .col-clicks { color: #888; text-align: right; }
+    .col-name { color: #ccc; }
+    .col-name.empty { color: #333; font-style: italic; }
+    #empty-msg { padding: 40px; color: #333; text-align: center; }
+    #status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #111;
+      border-top: 1px solid #222;
+      padding: 3px 12px;
+      font-size: 11px;
+      color: #444;
+      display: flex;
+      gap: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div id="toolbar">
+    <div>
+      <div id="toolbar-title">NULL / USER REGISTRY</div>
+      <div id="toolbar-sub">Transaction: /admin &nbsp;|&nbsp; ALV Grid Report</div>
+    </div>
+    <div id="toolbar-count"></div>
+    <button id="refresh-btn" onclick="load()">Refresh</button>
+  </div>
+
+  <div id="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Cookie ID</th>
+          <th>First Seen</th>
+          <th>First Seen (Unix)</th>
+          <th>Clicks</th>
+          <th>Name</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <div id="empty-msg" style="display:none">No subjects on record.</div>
+  </div>
+
+  <div id="status-bar">
+    <span id="status-loaded"></span>
+    <span id="status-time"></span>
+  </div>
+
+  <script>
+    function fmt(ts) {
+      if (!ts) return '—';
+      const d = new Date(ts);
+      return d.getFullYear() + '-' +
+        String(d.getMonth()+1).padStart(2,'0') + '-' +
+        String(d.getDate()).padStart(2,'0') + ' ' +
+        String(d.getHours()).padStart(2,'0') + ':' +
+        String(d.getMinutes()).padStart(2,'0') + ':' +
+        String(d.getSeconds()).padStart(2,'0');
+    }
+
+    function load() {
+      fetch('/api/users')
+        .then(r => r.json())
+        .then(users => {
+          users.sort((a, b) => (a.firstSeen || 0) - (b.firstSeen || 0));
+          const tbody = document.getElementById('tbody');
+          tbody.innerHTML = '';
+          if (!users.length) {
+            document.getElementById('empty-msg').style.display = '';
+          } else {
+            document.getElementById('empty-msg').style.display = 'none';
+            users.forEach((u, i) => {
+              const tr = document.createElement('tr');
+              tr.innerHTML = `
+                <td class="col-id">${String(i+1).padStart(5,'0')}</td>
+                <td class="col-id">${u.id}</td>
+                <td>${fmt(u.firstSeen)}</td>
+                <td class="col-unix">${u.firstSeen ? Math.floor(u.firstSeen/1000) : '—'}</td>
+                <td class="col-clicks">${u.cookieClicks ?? 0}</td>
+                <td class="${u.name ? 'col-name' : 'col-name empty'}">${u.name || 'not set'}</td>
+              `;
+              tbody.appendChild(tr);
+            });
+          }
+          document.getElementById('toolbar-count').textContent = `${users.length} subject${users.length !== 1 ? 's' : ''}`;
+          document.getElementById('status-loaded').textContent = `Loaded ${users.length} record${users.length !== 1 ? 's' : ''}`;
+          document.getElementById('status-time').textContent = `Last refresh: ${fmt(Date.now())}`;
+        });
+    }
+
+    load();
+    setInterval(load, 30000);
+  </script>
+</body>
+</html>

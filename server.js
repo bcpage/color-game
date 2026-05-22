@@ -9,6 +9,21 @@ const PORT = 3000;
 // ─── Game registry ────────────────────────────────────────────────────────────
 const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '00009', '00010', '00011', '00012', '00013', '00014', '00015', '00016', '00017', '00018', '00019', '00020', '00021', '00022', '00023', '00024', '00025', '00026', '00027', '00028', '00029', '00030', '00031', '00032', '00033', '00034', '00035', '00036', '00037', '00038', '00039', '00040', '00041', '00042', '00043', '00044', '00045', '00046', '00047', '00048', '00049', '00050'];
 
+// ─── User store ───────────────────────────────────────────────────────────────
+const USER_DATA_DIR = path.join(__dirname, 'data');
+const USER_FILE = path.join(USER_DATA_DIR, 'users.json');
+if (!fs.existsSync(USER_DATA_DIR)) fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+let users = {};
+try { users = JSON.parse(fs.readFileSync(USER_FILE, 'utf8')); } catch (e) {}
+function saveUsers() { fs.writeFileSync(USER_FILE, JSON.stringify(users)); }
+function getOrCreateUser(deviceId) {
+  if (!users[deviceId]) {
+    users[deviceId] = { firstSeen: Date.now(), cookieClicks: 0, name: null };
+    saveUsers();
+  }
+  return users[deviceId];
+}
+
 // ─── Cookie persistence ───────────────────────────────────────────────────────
 const COOKIE_DATA_DIR = path.join(__dirname, 'public', 'games', '00002', 'data');
 const COOKIE_FILE = path.join(COOKIE_DATA_DIR, 'cookie.json');
@@ -370,6 +385,29 @@ const httpServer = http.createServer((req, res) => {
   const pathname = req.url.split('?')[0];
   const method = req.method;
 
+  // Assign device cookie server-side on every request
+  let deviceId = getDeviceId(req);
+  const extraHeaders = {};
+  if (!deviceId) {
+    deviceId = require('crypto').randomUUID();
+    extraHeaders['Set-Cookie'] = `device=${deviceId}; Path=/; Max-Age=31536000; SameSite=Lax`;
+  }
+  getOrCreateUser(deviceId);
+
+  // Helper that includes cookie header when needed
+  function sendJSONWithHeaders(data, status = 200) {
+    const headers = { 'Content-Type': 'application/json', ...extraHeaders };
+    res.writeHead(status, headers);
+    res.end(JSON.stringify(data));
+  }
+  function serveFileWithHeaders(filePath, contentType) {
+    fs.readFile(filePath, (err, data) => {
+      if (err) { res.writeHead(404); res.end('Not found'); return; }
+      res.writeHead(200, { 'Content-Type': contentType, ...extraHeaders });
+      res.end(data);
+    });
+  }
+
   // Root → welcome screen
   if (pathname === '/' || pathname === '/index.html') {
     res.writeHead(302, { Location: '/game/00000' });
@@ -377,9 +415,15 @@ const httpServer = http.createServer((req, res) => {
     return;
   }
 
+  // Admin dashboard
+  if (pathname === '/admin' && method === 'GET') {
+    serveFileWithHeaders(path.join(__dirname, 'public', 'admin', 'index.html'), 'text/html');
+    return;
+  }
+
   // Welcome screen (not part of the game nav loop)
   if (pathname === '/game/00000' && method === 'GET') {
-    serveFile(res, path.join(__dirname, 'public', 'games', '00000', 'index.html'), 'text/html');
+    serveFileWithHeaders(path.join(__dirname, 'public', 'games', '00000', 'index.html'), 'text/html');
     return;
   }
 
@@ -388,7 +432,7 @@ const httpServer = http.createServer((req, res) => {
   if (gameMatch && method === 'GET') {
     const id = gameMatch[1].padStart(5, '0');
     if (!GAMES.includes(id)) { res.writeHead(404); res.end('Game not found'); return; }
-    serveFile(res, path.join(__dirname, 'public', 'games', id, 'index.html'), 'text/html');
+    serveFileWithHeaders(path.join(__dirname, 'public', 'games', id, 'index.html'), 'text/html');
     return;
   }
 
@@ -414,7 +458,22 @@ const httpServer = http.createServer((req, res) => {
   if (pathname === '/api/cookie/click' && method === 'POST') {
     cookieCount++;
     saveCookie();
-    sendJSON(res, { count: cookieCount });
+    const user = users[deviceId];
+    if (user) { user.cookieClicks++; saveUsers(); }
+    sendJSON(res, { count: cookieCount, myClicks: user ? user.cookieClicks : 1 });
+    return;
+  }
+
+  // API: current user record
+  if (pathname === '/api/user/me' && method === 'GET') {
+    sendJSON(res, users[deviceId] || { firstSeen: null, cookieClicks: 0, name: null });
+    return;
+  }
+
+  // API: all users (admin)
+  if (pathname === '/api/users' && method === 'GET') {
+    const list = Object.entries(users).map(([id, u]) => ({ id, ...u }));
+    sendJSON(res, list);
     return;
   }
 

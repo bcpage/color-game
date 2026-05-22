@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Cookie Clicker</title>
+  <title>Cookie</title>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
   <style>
+    body.nav-hidden #game-nav { display: none !important; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       background: #1a1a2e;
       color: white;
@@ -21,7 +21,6 @@
       padding: 8px;
       gap: 8px;
     }
-
     #game-area {
       flex: 1;
       min-height: 0;
@@ -32,20 +31,23 @@
       gap: 16px;
       width: 100%;
     }
-
     #count {
       font-size: clamp(2rem, 8vw, 4rem);
       color: #ffcc00;
       text-shadow: 0 0 30px rgba(255, 204, 0, 0.5);
+      opacity: 0;
+      transition: opacity 0.6s;
     }
-
+    #count.visible { opacity: 1; }
     #count-label {
       font-size: clamp(0.9rem, 3vw, 1.2rem);
       color: #666;
       margin-top: -10px;
       letter-spacing: 1px;
+      opacity: 0;
+      transition: opacity 0.6s;
     }
-
+    #count-label.visible { opacity: 1; }
     #cookie-btn {
       font-size: clamp(5rem, 20vw, 10rem);
       background: none;
@@ -55,38 +57,49 @@
       padding: 0;
       -webkit-tap-highlight-color: transparent;
       user-select: none;
-      transition: transform 0.08s ease-out;
+      transition: transform 0.08s ease-out, opacity 0.5s;
       filter: drop-shadow(0 0 20px rgba(255, 180, 0, 0.3));
     }
-
     #cookie-btn:active { transform: scale(0.82); }
-
+    #cookie-btn.hidden { opacity: 0; pointer-events: none; }
     @keyframes pop {
       0%   { transform: scale(1); }
       40%  { transform: scale(0.82); }
       70%  { transform: scale(1.08); }
       100% { transform: scale(1); }
     }
-
     #cookie-btn.popping { animation: pop 0.2s ease-out forwards; }
-
     #per-click {
       font-size: 1rem;
       color: #e94560;
       opacity: 0;
       transform: translateY(0);
-      transition: opacity 0.1s;
       pointer-events: none;
     }
-
-    #per-click.show {
-      animation: float-up 0.8s ease-out forwards;
-    }
-
+    #per-click.show { animation: float-up 0.8s ease-out forwards; }
     @keyframes float-up {
       0%   { opacity: 1; transform: translateY(0); }
       100% { opacity: 0; transform: translateY(-40px); }
     }
+    #prompt {
+      font-size: clamp(0.75rem, 2vw, 1rem);
+      color: #333;
+      letter-spacing: 0.05em;
+      transition: opacity 0.5s;
+    }
+    #prompt.hidden { opacity: 0; }
+    #message {
+      font-size: clamp(0.85rem, 2.5vw, 1.1rem);
+      color: #888;
+      text-align: center;
+      max-width: 460px;
+      line-height: 1.8;
+      opacity: 0;
+      transition: opacity 1s;
+      min-height: 2em;
+      padding: 0 16px;
+    }
+    #message.visible { opacity: 1; }
   </style>
 </head>
 <body data-game="00002">
@@ -96,36 +109,37 @@
     <div id="count-label">cookies baked</div>
     <button id="cookie-btn">🍪</button>
     <div id="per-click">+1</div>
+    <div id="prompt">click to continue</div>
+    <div id="message"></div>
   </div>
 
   <script src="/shared/nav.js"></script>
   <script>
-    const countEl = document.getElementById('count');
-    const cookieBtn = document.getElementById('cookie-btn');
-    const perClick = document.getElementById('per-click');
+    const countEl    = document.getElementById('count');
+    const labelEl    = document.getElementById('count-label');
+    const cookieBtn  = document.getElementById('cookie-btn');
+    const perClick   = document.getElementById('per-click');
+    const promptEl   = document.getElementById('prompt');
+    const messageEl  = document.getElementById('message');
+    const MESSAGES = [
+      "You have chosen to generate your own cookie. It was not forced.",
+      "Your cookie was not assigned. You created it. This was your first action.",
+      "You clicked. A record was created. This was voluntary.",
+    ];
 
-    function formatCount(n) {
-      if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
-      if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
-      return n.toLocaleString();
-    }
+    function hideNav() { document.body.classList.add('nav-hidden'); }
+    function showNav() { document.body.classList.remove('nav-hidden'); }
 
-    fetch('/api/cookie')
-      .then(r => r.json())
-      .then(data => { countEl.textContent = formatCount(data.count); });
-
-    // ── Sound engine ────────────────────────────────────────────────────────
+    // Sound engine
     let audioCtx = null;
     function ctx() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state === 'suspended') audioCtx.resume();
       return audioCtx;
     }
-
     function osc(type, freq, gainVal, duration, freqEnd) {
       const c = ctx();
-      const o = c.createOscillator();
-      const g = c.createGain();
+      const o = c.createOscillator(); const g = c.createGain();
       o.connect(g); g.connect(c.destination);
       o.type = type;
       o.frequency.setValueAtTime(freq, c.currentTime);
@@ -134,103 +148,100 @@
       g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duration);
       o.start(); o.stop(c.currentTime + duration);
     }
-
-    function noise(filterType, filterFreq, gainVal, duration, filterFreqEnd) {
+    function noise(filterType, filterFreq, gainVal, duration) {
       const c = ctx();
       const buf = c.createBuffer(1, c.sampleRate * duration, c.sampleRate);
       const d = buf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      const src = c.createBufferSource();
-      src.buffer = buf;
-      const f = c.createBiquadFilter();
-      f.type = filterType;
-      f.frequency.setValueAtTime(filterFreq, c.currentTime);
-      if (filterFreqEnd) f.frequency.exponentialRampToValueAtTime(filterFreqEnd, c.currentTime + duration);
+      const src = c.createBufferSource(); src.buffer = buf;
+      const f = c.createBiquadFilter(); f.type = filterType; f.frequency.value = filterFreq;
       const g = c.createGain();
       g.gain.setValueAtTime(gainVal, c.currentTime);
       g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duration);
       src.connect(f); f.connect(g); g.connect(c.destination);
       src.start(); src.stop(c.currentTime + duration);
     }
-
     const sounds = [
-      // 1. pop — classic soft pop
       () => osc('sine', 320, 0.4, 0.14, 140),
-
-      // 2. crunch — biscuit snap (bandpass noise)
       () => noise('bandpass', 900, 0.35, 0.13),
-
-      // 3. ding — bright bell
       () => osc('sine', 1040, 0.25, 0.5, 520),
-
-      // 4. boing — springy bounce
-      () => {
-        const c = ctx();
-        const o = c.createOscillator(); const g = c.createGain();
-        o.connect(g); g.connect(c.destination); o.type = 'triangle';
-        o.frequency.setValueAtTime(90, c.currentTime);
-        o.frequency.exponentialRampToValueAtTime(480, c.currentTime + 0.09);
-        o.frequency.exponentialRampToValueAtTime(180, c.currentTime + 0.28);
-        g.gain.setValueAtTime(0.4, c.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.28);
-        o.start(); o.stop(c.currentTime + 0.28);
-      },
-
-      // 5. squish — wet downward slide
-      () => osc('sawtooth', 210, 0.18, 0.18, 55),
-
-      // 6. blip — retro 8-bit tap
-      () => osc('square', 520 + Math.random() * 300, 0.12, 0.07),
-
-      // 7. thud — deep floor thump
       () => osc('sine', 130, 0.65, 0.11, 38),
-
-      // 8. bubble — rising bubble pop
       () => osc('sine', 280, 0.3, 0.11, 880),
-
-      // 9. twinkle — three ascending pings
-      () => {
-        const c = ctx();
-        [600, 760, 960].forEach((freq, i) => {
-          const o = c.createOscillator(); const g = c.createGain();
-          o.connect(g); g.connect(c.destination); o.type = 'sine';
-          o.frequency.value = freq;
-          const t = c.currentTime + i * 0.07;
-          g.gain.setValueAtTime(0, t);
-          g.gain.linearRampToValueAtTime(0.28, t + 0.015);
-          g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-          o.start(t); o.stop(t + 0.18);
-        });
-      },
-
-      // 10. whoosh — airy upward sweep
-      () => noise('highpass', 180, 0.18, 0.22, 3200),
     ];
+    function playSound() { try { sounds[Math.floor(Math.random() * sounds.length)](); } catch(e) {} }
 
-    function playSound() {
-      try {
-        sounds[Math.floor(Math.random() * sounds.length)]();
-      } catch (e) {}
+    function formatCount(n) {
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+      if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+      return n.toLocaleString();
     }
-    // ── End sound engine ─────────────────────────────────────────────────────
 
-    cookieBtn.addEventListener('click', () => {
-      playSound();
+    function cycleMessages(cb) {
+      let i = 0;
+      function showNext() {
+        if (i >= MESSAGES.length) { cb(); return; }
+        messageEl.textContent = MESSAGES[i];
+        messageEl.classList.add('visible');
+        setTimeout(() => {
+          messageEl.classList.remove('visible');
+          setTimeout(() => { i++; showNext(); }, 1000);
+        }, 3000);
+      }
+      showNext();
+    }
 
-      // Pop animation
-      cookieBtn.classList.remove('popping');
-      void cookieBtn.offsetWidth;
-      cookieBtn.classList.add('popping');
+    function enterNormalMode(myClicks, totalCount) {
+      promptEl.classList.add('hidden');
+      messageEl.style.display = 'none';
+      countEl.textContent = formatCount(totalCount);
+      countEl.classList.add('visible');
+      labelEl.classList.add('visible');
+      showNav();
 
-      // Floating +1
-      perClick.classList.remove('show');
-      void perClick.offsetWidth;
-      perClick.classList.add('show');
+      cookieBtn.addEventListener('click', () => {
+        playSound();
+        cookieBtn.classList.remove('popping');
+        void cookieBtn.offsetWidth;
+        cookieBtn.classList.add('popping');
+        perClick.classList.remove('show');
+        void perClick.offsetWidth;
+        perClick.classList.add('show');
+        fetch('/api/cookie/click', { method: 'POST' })
+          .then(r => r.json())
+          .then(data => { countEl.textContent = formatCount(data.count); });
+      });
+    }
 
-      fetch('/api/cookie/click', { method: 'POST' })
-        .then(r => r.json())
-        .then(data => { countEl.textContent = formatCount(data.count); });
-    });
+    // Init
+    hideNav();
+
+    fetch('/api/user/me')
+      .then(r => r.json())
+      .then(user => {
+        if (user.cookieClicks > 0) {
+          // Already passed gate — go straight to normal mode
+          fetch('/api/cookie').then(r => r.json()).then(data => {
+            enterNormalMode(user.cookieClicks, data.count);
+          });
+          return;
+        }
+
+        // First time — gate mode
+        promptEl.style.display = '';
+        cookieBtn.addEventListener('click', function () {
+          playSound();
+          cookieBtn.classList.add('hidden');
+          promptEl.classList.add('hidden');
+
+          fetch('/api/cookie/click', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+              cycleMessages(() => {
+                enterNormalMode(data.myClicks, data.count);
+              });
+            });
+        }, { once: true });
+      });
   </script>
 </body>
 </html>
