@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — Paradox: Bootstrap</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      padding: 60px 40px 100px;
+    }
+    .room-id { color: #222; font-size: 0.65rem; margin-bottom: 6px; }
+    h1 { color: #e94560; font-size: 0.9rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 48px; }
+    .diagram {
+      margin: 0 auto 48px;
+      width: 340px;
+      height: 340px;
+      position: relative;
+    }
+    svg { width: 100%; height: 100%; overflow: visible; }
+    .node {
+      cursor: pointer;
+    }
+    .node rect {
+      fill: #0a0a10;
+      stroke: #1a1a2e;
+      stroke-width: 1;
+      transition: stroke 0.2s, fill 0.2s;
+    }
+    .node.active rect { stroke: #e94560; fill: #140408; }
+    .node text { fill: #555; font-size: 10px; font-family: 'Courier New', monospace; text-anchor: middle; transition: fill 0.2s; }
+    .node.active text { fill: #e94560; }
+    .arrow { stroke: #1a1a2e; stroke-width: 1.5; fill: none; transition: stroke 0.2s; }
+    .arrow.active { stroke: #e94560; }
+    .account {
+      max-width: 580px;
+      font-size: 0.78rem;
+      line-height: 1.85;
+      color: #555;
+    }
+    .account p { margin-bottom: 14px; }
+    .account strong { color: #888; }
+    .hint { font-size: 0.65rem; color: #222; margin-bottom: 28px; letter-spacing: 0.08em; }
+  </style>
+</head>
+<body data-game="00059" data-nav="matrix">
+  <div class="room-id">[00059]</div>
+  <h1>Paradox: Bootstrap</h1>
+  <div class="hint">click any node</div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 340 340" id="svg">
+      <!-- Arrows (drawn first, behind nodes) -->
+      <!-- Top: A → B (right) -->
+      <path class="arrow" id="arr-ab" d="M 170,50 A 120,120 0 0,1 290,170" marker-end="url(#head)"/>
+      <!-- Right: B → C (down) -->
+      <path class="arrow" id="arr-bc" d="M 290,170 A 120,120 0 0,1 170,290" marker-end="url(#head)"/>
+      <!-- Bottom: C → D (left) -->
+      <path class="arrow" id="arr-cd" d="M 170,290 A 120,120 0 0,1 50,170" marker-end="url(#head)"/>
+      <!-- Left: D → A (up) -->
+      <path class="arrow" id="arr-da" d="M 50,170 A 120,120 0 0,1 170,50" marker-end="url(#head)"/>
+
+      <defs>
+        <marker id="head" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M 0 0 L 6 3 L 0 6 Z" fill="#1a1a2e" id="arrowhead"/>
+        </marker>
+      </defs>
+
+      <!-- Nodes -->
+      <g class="node" id="node-a" data-label="A">
+        <rect x="110" y="20" width="120" height="36" rx="2"/>
+        <text x="170" y="34">SENT BACK</text>
+        <text x="170" y="48">IN TIME</text>
+      </g>
+      <g class="node" id="node-b" data-label="B">
+        <rect x="258" y="140" width="120" height="36" rx="2"/>
+        <text x="318" y="154">ENABLES</text>
+        <text x="318" y="168">ITS CREATION</text>
+      </g>
+      <g class="node" id="node-c" data-label="C">
+        <rect x="110" y="280" width="120" height="36" rx="2"/>
+        <text x="170" y="294">IS CREATED</text>
+        <text x="170" y="308"> </text>
+      </g>
+      <g class="node" id="node-d" data-label="D">
+        <rect x="-38" y="140" width="120" height="36" rx="2"/>
+        <text x="22" y="154">EXISTS</text>
+        <text x="22" y="168"> </text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="account">
+    <p>A bootstrap paradox is a causal loop in which a future event causes a past event, which causes the future event. The loop has no origin.</p>
+    <p><strong>Example:</strong> You receive a book from your future self. You study it, become an expert, write the book, and send it back to your past self. The book was never written — it was only copied. Where did the information originate?</p>
+    <p><strong>Example:</strong> A time traveler gives Beethoven's symphonies to Beethoven, who publishes them as his own. The music exists only because it was delivered from the future. It has no composer.</p>
+    <p>The loop is internally consistent. No physical law is violated within it. The information simply exists, having always existed within the closed loop. There is no point at which it did not exist.</p>
+    <p>Whether this constitutes a paradox depends on your definition of origin.</p>
+  </div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    const nodes = document.querySelectorAll('.node');
+    const arrows = document.querySelectorAll('.arrow');
+    let active = null;
+
+    nodes.forEach(node => {
+      node.addEventListener('click', () => {
+        nodes.forEach(n => n.classList.remove('active'));
+        arrows.forEach(a => a.classList.remove('active'));
+        if (active === node) { active = null; return; }
+        active = node;
+        node.classList.add('active');
+        // Activate the arrow leading out of this node
+        const id = node.id.split('-')[1]; // 'a', 'b', 'c', 'd'
+        const nextMap = { a: 'ab', b: 'bc', c: 'cd', d: 'da' };
+        const arr = document.getElementById('arr-' + nextMap[id]);
+        if (arr) arr.classList.add('active');
+        // Update arrowhead color
+        document.getElementById('arrowhead').setAttribute('fill', '#e94560');
+      });
+    });
+  </script>
+</body>
+</html>

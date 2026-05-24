@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px 80px;
+    }
+    .room-id {
+      position: fixed;
+      top: 20px;
+      left: 24px;
+      font-size: 0.65rem;
+      color: #111;
+    }
+    .timer {
+      font-size: 3.2rem;
+      letter-spacing: 0.12em;
+      color: #2a2a3a;
+      margin-bottom: 16px;
+      font-variant-numeric: tabular-nums;
+    }
+    .label {
+      font-size: 0.6rem;
+      color: #111;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body data-game="00067" data-nav="matrix">
+  <div class="room-id">[00067]</div>
+  <div class="timer" id="timer">--:--:--</div>
+  <div class="label">time remaining</div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    const KEY = 'null_countdown_67';
+    const MIN_DUR = 3600 * 2;       // 2 hours minimum
+    const MAX_DUR = 3600 * 48;      // 48 hours maximum
+
+    function getTarget() {
+      let t = localStorage.getItem(KEY);
+      if (t) t = parseInt(t);
+      if (!t || isNaN(t)) {
+        t = Date.now() + (MIN_DUR + Math.floor(Math.random() * (MAX_DUR - MIN_DUR))) * 1000;
+        localStorage.setItem(KEY, t);
+      }
+      return t;
+    }
+
+    const target = getTarget();
+
+    function fmt(ms) {
+      if (ms <= 0) return '00:00:00';
+      const s = Math.floor(ms / 1000);
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      const sec = s % 60;
+      return String(h).padStart(2,'0') + ':' +
+             String(m).padStart(2,'0') + ':' +
+             String(sec).padStart(2,'0');
+    }
+
+    const el = document.getElementById('timer');
+
+    function tick() {
+      const remaining = target - Date.now();
+      if (remaining <= 0) {
+        el.textContent = '00:00:00';
+        localStorage.removeItem(KEY);
+        setTimeout(() => { window.location.href = '/game/00000'; }, 1200);
+        return;
+      }
+      el.textContent = fmt(remaining);
+      setTimeout(tick, 1000);
+    }
+
+    tick();
+  </script>
+</body>
+</html>

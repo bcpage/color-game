@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — Paradox: Russell's Barber</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      padding: 60px 40px 100px;
+    }
+    .room-id { color: #222; font-size: 0.65rem; margin-bottom: 6px; }
+    h1 { color: #e94560; font-size: 0.9rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 48px; }
+    .premise {
+      border-left: 2px solid #e94560;
+      padding-left: 20px;
+      margin-bottom: 40px;
+      max-width: 560px;
+      font-size: 0.9rem;
+      line-height: 1.7;
+      color: #aaa;
+    }
+    .question {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 48px;
+      max-width: 560px;
+    }
+    .question strong { color: #888; }
+    .logic {
+      max-width: 560px;
+      font-size: 0.75rem;
+      line-height: 2;
+      color: #444;
+      border: 1px solid #0d0d18;
+      padding: 20px 24px;
+      margin-bottom: 40px;
+    }
+    .logic .line { display: block; }
+    .logic .line.red { color: #8b2020; }
+    .logic .line.indent { padding-left: 24px; }
+    .account {
+      max-width: 580px;
+      font-size: 0.78rem;
+      line-height: 1.85;
+      color: #444;
+    }
+    .account p { margin-bottom: 14px; }
+    .account strong { color: #666; }
+  </style>
+</head>
+<body data-game="00062" data-nav="matrix">
+  <div class="room-id">[00062]</div>
+  <h1>Paradox: Russell's Barber</h1>
+
+  <div class="premise">
+    "The barber shaves all and only those men in town who do not shave themselves."
+  </div>
+
+  <div class="question">
+    <strong>Who shaves the barber?</strong>
+  </div>
+
+  <div class="logic">
+    <span class="line">Case A: The barber shaves himself.</span>
+    <span class="line indent">→ The barber shaves only those who do NOT shave themselves.</span>
+    <span class="line indent red">→ Therefore the barber does not shave himself. Contradiction.</span>
+    <span class="line"> </span>
+    <span class="line">Case B: The barber does not shave himself.</span>
+    <span class="line indent">→ The barber shaves ALL those who do not shave themselves.</span>
+    <span class="line indent red">→ Therefore the barber shaves himself. Contradiction.</span>
+    <span class="line"> </span>
+    <span class="line">Both cases produce contradiction.</span>
+    <span class="line">The barber as described cannot exist.</span>
+  </div>
+
+  <div class="account">
+    <p>Formulated by Bertrand Russell in 1901. The barber paradox is a simplified version of <strong>Russell's paradox</strong>, which showed that naive set theory — the foundation of mathematics as it was understood at the time — is logically inconsistent.</p>
+    <p>The naive version: let R be the set of all sets that do not contain themselves. Does R contain itself? If yes, by definition it doesn't. If no, by definition it does. Contradiction either way. The set R cannot exist.</p>
+    <p>This broke Georg Cantor's paradise. Mathematicians had believed that any property could define a set. Russell's paradox proved that some properties define sets that cannot exist.</p>
+    <p>The resolution — developed by Russell himself and by Ernst Zermelo and Abraham Fraenkel — was to restrict which properties are allowed to define sets. Modern mathematics operates within these restrictions. The paradox does not recur. But it is always one definition away.</p>
+    <p><strong>The barber cannot exist.</strong> The sentence that describes him is grammatically valid and semantically empty.</p>
+  </div>
+
+  <script src="/shared/matrix-nav.js"></script>
+</body>
+</html>

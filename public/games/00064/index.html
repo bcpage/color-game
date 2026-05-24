@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — Wrong Snake</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 100px;
+    }
+    .room-id { color: #222; font-size: 0.65rem; margin-bottom: 4px; align-self: flex-start; }
+    h1 { color: #e94560; font-size: 0.8rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 4px; align-self: flex-start; }
+    .note { font-size: 0.65rem; color: #2a2a3a; margin-bottom: 24px; align-self: flex-start; }
+    canvas { border: 1px solid #0f0f1e; display: block; }
+    .status {
+      margin-top: 12px;
+      font-size: 0.65rem;
+      color: #2a2a3a;
+      display: flex;
+      gap: 32px;
+    }
+    .overlay {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body data-game="00064" data-nav="matrix">
+  <div class="room-id">[00064]</div>
+  <h1>Wrong Snake</h1>
+  <div class="note">arrow keys or WASD — grows at tail, not head</div>
+  <div style="position:relative;display:inline-block;">
+    <canvas id="c" width="400" height="400"></canvas>
+  </div>
+  <div class="status">
+    <span>length: <span id="len">3</span></span>
+    <span>food: <span id="food-count">0</span></span>
+  </div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const COLS = 20, ROWS = 20;
+    const CELL = canvas.width / COLS;
+    const TICK = 120;
+
+    let snake, dx, dy, food, running, dead, interval, eaten;
+
+    function init() {
+      snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+      dx = 1; dy = 0;
+      food = randomFood();
+      running = true; dead = false; eaten = 0;
+      document.getElementById('len').textContent = snake.length;
+      document.getElementById('food-count').textContent = 0;
+      clearInterval(interval);
+      interval = setInterval(tick, TICK);
+    }
+
+    function randomFood() {
+      let pos;
+      do {
+        pos = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
+      } while (snake.some(s => s.x === pos.x && s.y === pos.y));
+      return pos;
+    }
+
+    function tick() {
+      if (!running) return;
+
+      const head = snake[0];
+      const newHead = { x: head.x + dx, y: head.y + dy };
+
+      // Wall collision
+      if (newHead.x < 0 || newHead.x >= COLS || newHead.y < 0 || newHead.y >= ROWS) {
+        return gameOver();
+      }
+      // Self collision
+      if (snake.some(s => s.x === newHead.x && s.y === newHead.y)) {
+        return gameOver();
+      }
+
+      if (newHead.x === food.x && newHead.y === food.y) {
+        // WRONG: grow at tail
+        const tail = snake[snake.length - 1];
+        const preTail = snake[snake.length - 2] || tail;
+        snake.pop(); // remove old tail
+        snake.unshift(newHead); // add new head (move)
+
+        // Calculate extrapolated tail position
+        const growX = tail.x + (tail.x - preTail.x);
+        const growY = tail.y + (tail.y - preTail.y);
+        const newTail = {
+          x: Math.max(0, Math.min(COLS - 1, growX)),
+          y: Math.max(0, Math.min(ROWS - 1, growY))
+        };
+        // Only add if not on snake
+        if (!snake.some(s => s.x === newTail.x && s.y === newTail.y)) {
+          snake.push(newTail);
+        } else {
+          snake.push(tail); // fallback: duplicate tail
+        }
+
+        eaten++;
+        food = randomFood();
+        document.getElementById('food-count').textContent = eaten;
+      } else {
+        snake.pop();
+        snake.unshift(newHead);
+      }
+
+      document.getElementById('len').textContent = snake.length;
+      draw();
+    }
+
+    function gameOver() {
+      running = false; dead = true;
+      clearInterval(interval);
+      draw();
+      setTimeout(init, 1800);
+    }
+
+    function draw() {
+      ctx.fillStyle = '#050508';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Grid
+      ctx.strokeStyle = '#08080f';
+      ctx.lineWidth = 0.5;
+      for (let x = 0; x <= COLS; x++) {
+        ctx.beginPath(); ctx.moveTo(x*CELL, 0); ctx.lineTo(x*CELL, canvas.height); ctx.stroke();
+      }
+      for (let y = 0; y <= ROWS; y++) {
+        ctx.beginPath(); ctx.moveTo(0, y*CELL); ctx.lineTo(canvas.width, y*CELL); ctx.stroke();
+      }
+
+      // Food
+      ctx.fillStyle = '#e94560';
+      ctx.fillRect(food.x * CELL + 2, food.y * CELL + 2, CELL - 4, CELL - 4);
+
+      // Snake
+      snake.forEach((seg, i) => {
+        const alpha = i === 0 ? 1 : 0.5 - (i / snake.length) * 0.3;
+        ctx.fillStyle = i === 0 ? '#888' : `rgba(60,60,80,${Math.max(0.15, alpha)})`;
+        ctx.fillRect(seg.x * CELL + 1, seg.y * CELL + 1, CELL - 2, CELL - 2);
+      });
+
+      if (dead) {
+        ctx.fillStyle = 'rgba(5,5,8,0.7)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#e94560';
+        ctx.font = '14px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('TERMINATED', canvas.width/2, canvas.height/2 - 8);
+        ctx.fillStyle = '#333';
+        ctx.font = '10px Courier New';
+        ctx.fillText('restarting', canvas.width/2, canvas.height/2 + 12);
+      }
+    }
+
+    document.addEventListener('keydown', e => {
+      const map = {
+        ArrowUp: [0,-1], ArrowDown: [0,1], ArrowLeft: [-1,0], ArrowRight: [1,0],
+        w: [0,-1], s: [0,1], a: [-1,0], d: [1,0],
+        W: [0,-1], S: [0,1], A: [-1,0], D: [1,0],
+      };
+      const dir = map[e.key];
+      if (dir) {
+        e.preventDefault();
+        // Prevent reversing
+        if (dir[0] === -dx && dir[1] === -dy) return;
+        dx = dir[0]; dy = dir[1];
+      }
+    });
+
+    init();
+    draw();
+  </script>
+</body>
+</html>

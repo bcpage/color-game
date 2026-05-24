@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — Paradox: Grandfather</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      padding: 60px 40px 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .room-id { color: #222; font-size: 0.65rem; margin-bottom: 6px; }
+    h1 { color: #e94560; font-size: 0.9rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 48px; }
+    .statement {
+      max-width: 560px;
+      font-size: 0.82rem;
+      line-height: 1.85;
+      color: #666;
+      margin-bottom: 48px;
+    }
+    .statement p { margin-bottom: 14px; }
+    .btn-area { margin-bottom: 48px; }
+    button {
+      background: none;
+      border: 1px solid #1a1a2e;
+      color: #555;
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      padding: 10px 24px;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    button:hover:not(:disabled) { border-color: #e94560; color: #e94560; }
+    button:disabled { opacity: 0.3; cursor: not-allowed; }
+    .log {
+      max-width: 580px;
+      font-size: 0.72rem;
+      line-height: 1.9;
+      color: #333;
+    }
+    .log .entry { margin-bottom: 2px; }
+    .log .entry.lit { color: #666; }
+    .log .entry.red { color: #e94560; }
+    .account {
+      max-width: 580px;
+      font-size: 0.78rem;
+      line-height: 1.85;
+      color: #444;
+      margin-top: 48px;
+    }
+    .account p { margin-bottom: 14px; }
+    .account strong { color: #666; }
+  </style>
+</head>
+<body data-game="00060" data-nav="matrix">
+  <div class="room-id">[00060]</div>
+  <h1>Paradox: Grandfather</h1>
+
+  <div class="statement">
+    <p>You travel back in time and prevent your grandfather from meeting your grandmother. Your parents are never born. You are never born. You cannot travel back in time. Your grandfather meets your grandmother. Your parents are born. You are born. You travel back in time and prevent your grandfather from meeting your grandmother.</p>
+  </div>
+
+  <div class="btn-area">
+    <button id="btn">Travel back in time</button>
+  </div>
+
+  <div class="log" id="log"></div>
+
+  <div class="account">
+    <p>The grandfather paradox was introduced by science-fiction writer René Barjavel in 1943. It remains the canonical argument against unrestricted time travel — not because it proves time travel impossible, but because it demonstrates that unrestricted time travel produces logical contradiction.</p>
+    <p>Proposed resolutions include: <strong>the Novikov self-consistency principle</strong> (only self-consistent timelines can occur — you will always fail to prevent your grandfather from meeting your grandmother); <strong>many-worlds branching</strong> (you create a new branch and your action prevents a version of yourself, not the version that sent you back); and <strong>temporal immunity</strong> (you exist outside the timeline you modify).</p>
+    <p>None of these resolutions are provable. All are logically consistent. The paradox does not resolve itself.</p>
+  </div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    const btn = document.getElementById('btn');
+    const log = document.getElementById('log');
+    let running = false;
+
+    const steps = [
+      { text: 'You travel back in time.', delay: 0 },
+      { text: 'You prevent the meeting.', delay: 700 },
+      { text: 'Your grandparents never meet.', delay: 1500 },
+      { text: 'Your parents are never born.', delay: 2300 },
+      { text: 'You are never born.', delay: 3200 },
+      { text: '...', delay: 4200 },
+      { text: 'You cannot travel back in time.', delay: 5000, red: true },
+      { text: '...', delay: 6200 },
+      { text: 'Your grandparents meet.', delay: 7200 },
+      { text: 'Your parents are born.', delay: 8000 },
+      { text: 'You are born.', delay: 8800 },
+      { text: 'You travel back in time.', delay: 9700 },
+      { text: 'You prevent the meeting.', delay: 10400 },
+      { text: 'Your grandparents never meet.', delay: 11200 },
+      { text: 'Your parents are never born.', delay: 12000 },
+      { text: 'You are never born.', delay: 12800 },
+      { text: '...', delay: 13800 },
+      { text: 'You cannot travel back in time.', delay: 14600, red: true },
+    ];
+
+    btn.addEventListener('click', () => {
+      if (running) return;
+      running = true;
+      btn.disabled = true;
+      log.innerHTML = '';
+
+      steps.forEach((step, i) => {
+        setTimeout(() => {
+          const div = document.createElement('div');
+          div.className = 'entry' + (step.red ? ' red' : '');
+          div.textContent = '> ' + step.text;
+          log.appendChild(div);
+          // Fade in
+          requestAnimationFrame(() => div.classList.add('lit'));
+
+          if (i === steps.length - 1) {
+            setTimeout(() => {
+              const div2 = document.createElement('div');
+              div2.className = 'entry';
+              div2.textContent = '> [loop continues]';
+              log.appendChild(div2);
+              running = false;
+              btn.disabled = false;
+              btn.textContent = 'Travel back in time again';
+            }, 800);
+          }
+        }, step.delay);
+      });
+    });
+  </script>
+</body>
+</html>

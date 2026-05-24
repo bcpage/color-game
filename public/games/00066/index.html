@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — River Crossing</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      padding: 60px 40px 100px;
+    }
+    .room-id { color: #222; font-size: 0.65rem; margin-bottom: 6px; }
+    h1 { color: #e94560; font-size: 0.9rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 8px; }
+    .attribution { font-size: 0.65rem; color: #2a2a3a; margin-bottom: 40px; }
+    .puzzle {
+      display: flex;
+      gap: 0;
+      max-width: 680px;
+      margin-bottom: 32px;
+    }
+    .bank {
+      flex: 1;
+      min-height: 200px;
+      border: 1px solid #111128;
+      padding: 16px;
+    }
+    .bank-label {
+      font-size: 0.6rem;
+      color: #333;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .river {
+      width: 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-top: 1px solid #111128;
+      border-bottom: 1px solid #111128;
+      background: #07070e;
+      gap: 8px;
+    }
+    .river-label { font-size: 0.6rem; color: #1a1a2e; letter-spacing: 0.08em; }
+    .entity {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      margin-bottom: 4px;
+      border: 1px solid #111128;
+      cursor: pointer;
+      font-size: 0.75rem;
+      color: #555;
+      transition: border-color 0.1s, color 0.1s;
+      user-select: none;
+    }
+    .entity:hover { border-color: #2a2a3a; color: #888; }
+    .entity.selected { border-color: #e94560; color: #e94560; }
+    .entity.farmer { color: #888; border-color: #1a1a2e; }
+    .entity.farmer.selected { border-color: #e94560; color: #e94560; }
+    .boat {
+      width: 56px;
+      min-height: 60px;
+      border: 1px solid #1a1a2e;
+      background: #0a0a14;
+      padding: 6px;
+      font-size: 0.65rem;
+      color: #333;
+    }
+    .boat-label { font-size: 0.58rem; color: #222; margin-bottom: 4px; }
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      max-width: 680px;
+    }
+    button {
+      background: none;
+      border: 1px solid #1a1a2e;
+      color: #444;
+      font-family: 'Courier New', monospace;
+      font-size: 0.72rem;
+      padding: 8px 16px;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+      transition: border-color 0.1s, color 0.1s;
+    }
+    button:hover:not(:disabled) { border-color: #888; color: #888; }
+    button:disabled { opacity: 0.3; cursor: not-allowed; }
+    .msg {
+      font-size: 0.72rem;
+      min-height: 20px;
+      margin-bottom: 24px;
+      max-width: 680px;
+    }
+    .msg.ok { color: #4a7a4a; }
+    .msg.err { color: #8b2020; }
+    .msg.win { color: #e94560; }
+    .history { font-size: 0.65rem; color: #222; max-width: 680px; line-height: 1.8; }
+    .moves-label { font-size: 0.6rem; color: #222; margin-bottom: 4px; letter-spacing: 0.08em; }
+    .account {
+      max-width: 580px;
+      font-size: 0.75rem;
+      line-height: 1.85;
+      color: #3a3a4a;
+      margin-top: 40px;
+    }
+    .account p { margin-bottom: 12px; }
+  </style>
+</head>
+<body data-game="00066" data-nav="matrix">
+  <div class="room-id">[00066]</div>
+  <h1>River Crossing</h1>
+  <div class="attribution">Alcuin of York — Propositiones ad Acuendos Juvenes — c. 800 AD</div>
+
+  <div class="puzzle">
+    <div class="bank" id="left-bank">
+      <div class="bank-label">West Bank</div>
+    </div>
+    <div class="river">
+      <div class="river-label">RIVER</div>
+      <div class="boat" id="boat">
+        <div class="boat-label">BOAT</div>
+      </div>
+      <button id="cross-btn" disabled>cross →</button>
+    </div>
+    <div class="bank" id="right-bank">
+      <div class="bank-label">East Bank</div>
+    </div>
+  </div>
+
+  <div class="msg" id="msg"></div>
+  <div class="controls">
+    <button id="reset-btn">reset</button>
+  </div>
+  <div class="moves-label">MOVE LOG</div>
+  <div class="history" id="history"></div>
+
+  <div class="account">
+    <p>A farmer must cross a river with a fox, a chicken, and a bag of grain. The boat holds the farmer and one other. Alone on a bank: the fox eats the chicken. The chicken eats the grain. The farmer is the only safe mediator.</p>
+    <p>Two solutions exist. Alcuin posed this problem around 800 AD in <em>Propositiones ad Acuendos Juvenes</em> (Problems to Sharpen the Young). It is one of the earliest recorded river-crossing puzzles.</p>
+  </div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    // State: each entity has side 0 (west) or 1 (east)
+    // Farmer is implicit — always with the boat
+    const ENTITIES = ['fox', 'chicken', 'grain'];
+    const LABELS = { fox: 'FOX', chicken: 'CHICKEN', grain: 'GRAIN', farmer: 'FARMER' };
+
+    let state = { farmer: 0, fox: 0, chicken: 0, grain: 0 };
+    let boatSide = 0; // 0=west, 1=east
+    let boatPassenger = null; // null or entity name in boat
+    let moves = 0;
+    let won = false;
+    let history = [];
+
+    function isValid(s) {
+      // Fox and chicken alone without farmer
+      if (s.fox === s.chicken && s.fox !== s.farmer) return false;
+      // Chicken and grain alone without farmer
+      if (s.chicken === s.grain && s.chicken !== s.farmer) return false;
+      return true;
+    }
+
+    function isWon(s) {
+      return s.farmer === 1 && s.fox === 1 && s.chicken === 1 && s.grain === 1;
+    }
+
+    function render() {
+      const leftBank = document.getElementById('left-bank');
+      const rightBank = document.getElementById('right-bank');
+      const boat = document.getElementById('boat');
+      const crossBtn = document.getElementById('cross-btn');
+      const msg = document.getElementById('msg');
+
+      // Clear banks (keep label)
+      leftBank.innerHTML = '<div class="bank-label">West Bank</div>';
+      rightBank.innerHTML = '<div class="bank-label">East Bank</div>';
+      boat.innerHTML = '<div class="boat-label">BOAT</div>';
+
+      // Render farmer
+      const farmerBank = state.farmer === boatSide ? null : (state.farmer === 0 ? leftBank : rightBank);
+      if (farmerBank) {
+        const el = document.createElement('div');
+        el.className = 'entity farmer';
+        el.textContent = 'FARMER';
+        farmerBank.appendChild(el);
+      } else {
+        // Farmer is in boat area
+        const el = document.createElement('div');
+        el.className = 'entity farmer';
+        el.textContent = 'FARMER';
+        boat.appendChild(el);
+      }
+
+      // Render entities
+      ENTITIES.forEach(name => {
+        if (boatPassenger === name) {
+          // In boat
+          const el = document.createElement('div');
+          el.className = 'entity selected';
+          el.textContent = LABELS[name];
+          el.addEventListener('click', () => { boatPassenger = null; render(); });
+          boat.appendChild(el);
+          return;
+        }
+
+        const side = state[name];
+        const bankEl = side === 0 ? leftBank : rightBank;
+        const el = document.createElement('div');
+        el.className = 'entity';
+        el.textContent = LABELS[name];
+
+        // Can load into boat?
+        if (side === boatSide && !boatPassenger && !won) {
+          el.addEventListener('click', () => {
+            boatPassenger = name;
+            render();
+          });
+        } else {
+          el.style.opacity = '0.4';
+        }
+        bankEl.appendChild(el);
+      });
+
+      // Farmer goes with boat — show in boat area
+      // Cross button: enabled if farmer is on boat side
+      crossBtn.disabled = won;
+      crossBtn.textContent = boatSide === 0 ? 'cross →' : '← cross';
+
+      // Message
+      if (!won) msg.className = 'msg';
+    }
+
+    document.getElementById('cross-btn').addEventListener('click', () => {
+      if (won) return;
+
+      // Move farmer to other side
+      const newSide = 1 - boatSide;
+      state.farmer = newSide;
+
+      // Move passenger if any
+      if (boatPassenger) {
+        state[boatPassenger] = newSide;
+      }
+
+      const dir = boatSide === 0 ? '→' : '←';
+      const cargo = boatPassenger ? ' with ' + LABELS[boatPassenger] : ' alone';
+      history.push('Farmer crosses ' + dir + cargo);
+      boatSide = newSide;
+      boatPassenger = null;
+      moves++;
+
+      const msg = document.getElementById('msg');
+      if (!isValid(state)) {
+        msg.className = 'msg err';
+        msg.textContent = 'Invalid state. Something was eaten.';
+        setTimeout(() => { reset(); }, 1200);
+        return;
+      }
+
+      if (isWon(state)) {
+        won = true;
+        msg.className = 'msg win';
+        msg.textContent = 'All across. ' + moves + ' crossings.';
+        history.push('— solved in ' + moves + ' moves —');
+      } else {
+        msg.className = 'msg ok';
+        msg.textContent = '';
+      }
+
+      renderHistory();
+      render();
+    });
+
+    function reset() {
+      state = { farmer: 0, fox: 0, chicken: 0, grain: 0 };
+      boatSide = 0; boatPassenger = null; moves = 0; won = false;
+      history = [];
+      document.getElementById('msg').textContent = '';
+      renderHistory();
+      render();
+    }
+
+    function renderHistory() {
+      const h = document.getElementById('history');
+      h.innerHTML = history.map(l => '> ' + l).join('<br>');
+    }
+
+    document.getElementById('reset-btn').addEventListener('click', reset);
+
+    render();
+  </script>
+</body>
+</html>

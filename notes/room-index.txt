@@ -270,6 +270,42 @@ ROOM INDEX (00000 — 00051)
                                at Phase 2, December 2025. Progress bar will never
                                advance. Blinking cursor on last log entry.
 
+00059  PARADOX: BOOTSTRAP      Causal loop diagram — 4 nodes in a circle, click
+                               to highlight. A thing was sent back; it enabled its
+                               creation; it was created; it was sent back.
+
+00060  PARADOX: GRANDFATHER    "Travel back in time" button triggers a 15-step log
+                               sequence of the loop. Both contradiction cases appear
+                               in red. Ends with "[loop continues]."
+
+00061  PARADOX: BANACH-TARSKI  Theorem statement + diagram: 1 sphere → 5 pieces →
+                               2 spheres. Account covers Axiom of Choice and why
+                               the theorem is true but not physically realizable.
+
+00062  PARADOX: RUSSELL'S      The barber premise, the question, two-case logic
+       BARBER                  block showing both cases contradict. Account covers
+                               naive set theory breakdown and ZFC resolution.
+
+00063  WRONG PONG              Pong where ball bounces at random angle on every
+                               paddle contact. Mouse-controlled left paddle vs AI.
+                               Score tracked. Game never develops rhythm.
+
+00064  WRONG SNAKE             Snake that grows at the tail instead of the head.
+                               On food eaten, a segment is extrapolated and appended
+                               at the opposite end. Arrow keys / WASD. Auto-restarts.
+
+00065  WRONG BREAKOUT          Breakout where each broken brick spawns two new bricks
+                               in random empty cells. Board grows net +1 per hit.
+                               Stats: broken / spawned / current count displayed.
+
+00066  RIVER CROSSING          Alcuin's fox-chicken-grain puzzle, c. 800 AD.
+                               Interactive: click to load boat, press Cross. Invalid
+                               states auto-reset. Move log. Two solutions exist.
+
+00067  [COUNTDOWN]             A timer in HH:MM:SS. No label. No explanation. At
+                               zero, user is redirected to /game/00000 and timer
+                               resets to a new random duration (2–48 hours).
+
 ================================================================================
 DATA FILES
 ================================================================================

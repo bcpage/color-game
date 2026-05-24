@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — Wrong Pong</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 100px;
+    }
+    .room-id { color: #222; font-size: 0.65rem; margin-bottom: 4px; align-self: flex-start; }
+    h1 { color: #e94560; font-size: 0.8rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 4px; align-self: flex-start; }
+    .note { font-size: 0.65rem; color: #2a2a3a; margin-bottom: 24px; align-self: flex-start; }
+    canvas {
+      border: 1px solid #0f0f1e;
+      cursor: none;
+      display: block;
+      max-width: 100%;
+    }
+    .score-row {
+      display: flex;
+      justify-content: space-between;
+      width: 600px;
+      max-width: 100%;
+      margin-top: 12px;
+      font-size: 0.65rem;
+      color: #2a2a3a;
+    }
+  </style>
+</head>
+<body data-game="00063" data-nav="matrix">
+  <div class="room-id">[00063]</div>
+  <h1>Wrong Pong</h1>
+  <div class="note">move mouse to control left paddle</div>
+  <canvas id="c" width="600" height="380"></canvas>
+  <div class="score-row">
+    <span>YOU</span>
+    <span>SYSTEM</span>
+  </div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const PW = 10, PH = 64, BR = 6, SPEED = 5;
+
+    let playerY = H / 2;
+    let aiY = H / 2;
+    let ball = { x: W/2, y: H/2, vx: SPEED, vy: SPEED * 0.4 };
+    let scores = [0, 0];
+    let serving = true;
+
+    canvas.addEventListener('mousemove', e => {
+      const r = canvas.getBoundingClientRect();
+      const scaleY = H / r.height;
+      playerY = (e.clientY - r.top) * scaleY;
+    });
+
+    function randomAngle(goingRight) {
+      const deg = (Math.random() * 100 - 50) * Math.PI / 180;
+      const spd = SPEED + Math.random() * 1.5;
+      return {
+        vx: goingRight ? Math.abs(Math.cos(deg) * spd) : -Math.abs(Math.cos(deg) * spd),
+        vy: Math.sin(deg) * spd
+      };
+    }
+
+    function serve() {
+      ball.x = W / 2; ball.y = H / 2;
+      const dir = Math.random() < 0.5;
+      const a = randomAngle(dir);
+      ball.vx = a.vx; ball.vy = a.vy;
+      serving = false;
+    }
+
+    function update() {
+      if (serving) return;
+
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+
+      // Wall bounce (top/bottom) — correct reflection
+      if (ball.y - BR <= 0) { ball.vy = Math.abs(ball.vy); ball.y = BR; }
+      if (ball.y + BR >= H) { ball.vy = -Math.abs(ball.vy); ball.y = H - BR; }
+
+      // Player paddle (left) — WRONG bounce angle
+      if (ball.vx < 0 && ball.x - BR <= 24 + PW && ball.y >= playerY - PH/2 - BR && ball.y <= playerY + PH/2 + BR) {
+        const a = randomAngle(true);
+        ball.vx = a.vx; ball.vy = a.vy;
+        ball.x = 24 + PW + BR;
+      }
+
+      // AI paddle (right) — WRONG bounce angle
+      if (ball.vx > 0 && ball.x + BR >= W - 24 - PW && ball.y >= aiY - PH/2 - BR && ball.y <= aiY + PH/2 + BR) {
+        const a = randomAngle(false);
+        ball.vx = a.vx; ball.vy = a.vy;
+        ball.x = W - 24 - PW - BR;
+      }
+
+      // AI movement — imperfect tracking
+      const aiSpeed = 3.2;
+      const err = (Math.random() - 0.5) * 20;
+      if (aiY < ball.y + err - 5) aiY = Math.min(aiY + aiSpeed, ball.y + err);
+      if (aiY > ball.y + err + 5) aiY = Math.max(aiY - aiSpeed, ball.y + err);
+
+      // Scoring
+      if (ball.x < 0) {
+        scores[1]++;
+        serving = true;
+        setTimeout(serve, 800);
+      }
+      if (ball.x > W) {
+        scores[0]++;
+        serving = true;
+        setTimeout(serve, 800);
+      }
+    }
+
+    function draw() {
+      ctx.fillStyle = '#050508';
+      ctx.fillRect(0, 0, W, H);
+
+      // Center dashes
+      ctx.strokeStyle = '#0c0c18';
+      ctx.setLineDash([6, 12]);
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(W/2, 0); ctx.lineTo(W/2, H); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Score
+      ctx.fillStyle = '#1a1a2e';
+      ctx.font = '28px Courier New';
+      ctx.textAlign = 'center';
+      ctx.fillText(scores[0] + '  :  ' + scores[1], W/2, 36);
+
+      // Paddles
+      ctx.fillStyle = '#2a2a3a';
+      ctx.fillRect(24, playerY - PH/2, PW, PH);
+      ctx.fillRect(W - 24 - PW, aiY - PH/2, PW, PH);
+
+      // Ball
+      ctx.fillStyle = '#e94560';
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, BR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    setTimeout(serve, 600);
+    loop();
+  </script>
+</body>
+</html>

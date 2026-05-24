@@ -1,7 +1,9 @@
 # NULL — Backlog Index
 Last updated: 2026-05-23
 Built since last update: Illegal Prime (00052), Random Linux Man Page (00053),
-Inspirational Comments (00054), Empty Rooms ×3 (00055–00057), Half Constructed Room (00058)
+Inspirational Comments (00054), Empty Rooms ×3 (00055–00057), Half Constructed Room (00058),
+Paradox rooms ×4 (00059–00062), Wrong Pong/Snake/Breakout (00063–00065),
+River Crossing (00066), Ominous Countdown Timer (00067)
 
 For full specs, grep docs/BACKLOG.md for the room name.
 
@@ -18,10 +20,10 @@ For full specs, grep docs/BACKLOG.md for the room name.
 | ~~The Illegal Prime~~ | ~~Trivial~~ | — | **BUILT** → 00052 |
 | Prime Number Generator | Easy | 3 | Nth prime on demand; special N=1401 case |
 | Compression Engine | Medium | 8 | Huffman coding; interactive tree; trilogy with BCP+ICR |
-| Paradox: Bootstrap | Easy | 2 | Causal loop diagram; click any node |
-| Paradox: Grandfather | Easy | 2 | Button that breaks itself; loop runs visually |
-| Paradox: Banach-Tarski | Easy | 2 | One sphere decomposed into two |
-| Paradox: Russell's Barber | Easy | 2 | Broke set theory; barber paradox |
+| ~~Paradox: Bootstrap~~ | ~~Easy~~ | — | **BUILT** → 00059 |
+| ~~Paradox: Grandfather~~ | ~~Easy~~ | — | **BUILT** → 00060 |
+| ~~Paradox: Banach-Tarski~~ | ~~Easy~~ | — | **BUILT** → 00061 |
+| ~~Paradox: Russell's Barber~~ | ~~Easy~~ | — | **BUILT** → 00062 |
 | Physics Engine | Easy–Med | 5 | Matter.js sandbox; boxes, ragdoll, negative gravity |
 | ~~Random Linux Man Page~~ | ~~Trivial~~ | — | **BUILT** → 00053 |
 | Jabberwocky | Easy | 3 | Fill in nonsense words; personal version + aggregate |
@@ -35,7 +37,7 @@ For full specs, grep docs/BACKLOG.md for the room name.
 | Information Rooms — pairs ×5 | Trivial | 2 | Identical pairs; one subtly wrong; neither labeled |
 | Useless Information B — Expired | Trivial | 1 | Accurate data whose relevance has expired |
 | Useless Information C — Fossil Room | Trivial | 1 | Documents a previous version of NULL; will not be updated |
-| Ominous Countdown Timer | Easy | 3 | Unknown duration; logs out at zero; always counting |
+| ~~Ominous Countdown Timer~~ | ~~Easy~~ | — | **BUILT** → 00067 |
 | Jump Scare Room | Easy | 3 | Once per user ever; room is empty on return |
 | TARDIS-inspired | Medium | 10 | Blue box, bigger inside; needs design session first |
 | The Hookah-Smoking Caterpillar | Easy | 3 | "Who are you?" asked forever; every answer rejected |
@@ -48,7 +50,7 @@ For full specs, grep docs/BACKLOG.md for the room name.
 | Black Hole | Easy | 3 | Random redirect; some rooms reachable only by falling |
 | Tower of Hanoi | Easy | 4 | 3–8 rings; monks' 64-ring legend; solve animation |
 | Cracker Barrel Peg Solitaire | Easy | 3 | 15-hole triangle; "Eg-no-ra-mus" scoring verbatim |
-| River Crossing | Trivial–Easy | 2 | Alcuin 800 AD; fox/chicken/grain; two solutions |
+| ~~River Crossing~~ | ~~Trivial–Easy~~ | — | **BUILT** → 00066 |
 | Wire Connection Puzzle | Easy–Med | 5 | Number Link mechanic; TV screen framing; fill every cell |
 | NULL Navigation Board | Hard | 20 | Sokoban blocks ARE rooms; pushing a block rewires platform nav |
 | Sokoban — Block Pusher | Medium | 8 | Build first; navigation board reuses its engine |
@@ -56,11 +58,11 @@ For full specs, grep docs/BACKLOG.md for the room name.
 | Dig Dug | Medium | 10 | Faithful Namco 1982 clone; music plays only when player moves |
 | Wrong Tetris | Medium | 8 | Unfittable shapes; game cannot be won |
 | Shape Factory | Easy | 4 | User-drawn pieces enter Wrong Tetris pool |
-| Wrong Pong | Easy | 3 | Ball bounces at random angle |
-| Wrong Snake | Easy | 3 | Grows at tail instead of head |
+| ~~Wrong Pong~~ | ~~Easy~~ | — | **BUILT** → 00063 |
+| ~~Wrong Snake~~ | ~~Easy~~ | — | **BUILT** → 00064 |
 | Wrong Space Invaders | Medium | 6 | Shots originate from player's position |
 | Wrong Pac-Man | Medium | 6 | Ghosts flee; no win condition |
-| Wrong Breakout | Easy | 3 | Broken bricks spawn replacements |
+| ~~Wrong Breakout~~ | ~~Easy~~ | — | **BUILT** → 00065 |
 | HAL 9000 Room(s) | TBD | ? | Multiple ideas: the eye, regression, AE-35; needs spec pass |
 | The NULL Room (full matrix) | Medium | 6 | Full matrix view + live presence; see yourself glow |
 | Partial Matrix Fragments ×5 | Medium | 6 | Scattered partial views; comparing reveals patterns |

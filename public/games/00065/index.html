@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — Wrong Breakout</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 100px;
+    }
+    .room-id { color: #222; font-size: 0.65rem; margin-bottom: 4px; align-self: flex-start; }
+    h1 { color: #e94560; font-size: 0.8rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 4px; align-self: flex-start; }
+    .note { font-size: 0.65rem; color: #2a2a3a; margin-bottom: 24px; align-self: flex-start; }
+    canvas { border: 1px solid #0f0f1e; cursor: none; display: block; max-width: 100%; }
+    .status {
+      margin-top: 12px;
+      font-size: 0.65rem;
+      color: #2a2a3a;
+      display: flex;
+      gap: 32px;
+    }
+  </style>
+</head>
+<body data-game="00065" data-nav="matrix">
+  <div class="room-id">[00065]</div>
+  <h1>Wrong Breakout</h1>
+  <div class="note">move mouse — breaking a brick spawns two more</div>
+  <canvas id="c" width="480" height="360"></canvas>
+  <div class="status">
+    <span>broken: <span id="broken">0</span></span>
+    <span>spawned: <span id="spawned">0</span></span>
+    <span>bricks: <span id="bcount">0</span></span>
+  </div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+
+    const COLS = 10, ROWS = 6;
+    const BW = 40, BH = 16, BGAP = 2;
+    const BOFF_X = (W - COLS * (BW + BGAP) + BGAP) / 2;
+    const BOFF_Y = 28;
+
+    const PW = 64, PH = 8, PR = 8; // paddle width, height; ball radius
+    const SPEED = 4.2;
+
+    let paddle, ball, bricks, brokenCount, spawnedCount, lives, running, dead;
+
+    function initBricks() {
+      bricks = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          bricks.push({ c, r, alive: true });
+        }
+      }
+    }
+
+    function brickRect(b) {
+      return {
+        x: BOFF_X + b.c * (BW + BGAP),
+        y: BOFF_Y + b.r * (BH + BGAP),
+        w: BW, h: BH
+      };
+    }
+
+    function emptyBrickSlots() {
+      return bricks.filter(b => !b.alive);
+    }
+
+    function spawnBrick() {
+      const empty = emptyBrickSlots();
+      if (empty.length === 0) return false;
+      const slot = empty[Math.floor(Math.random() * empty.length)];
+      slot.alive = true;
+      return true;
+    }
+
+    function init() {
+      paddle = { x: W / 2, y: H - 24 };
+      ball = { x: W / 2, y: H - 50, vx: SPEED * 0.6, vy: -SPEED };
+      initBricks();
+      brokenCount = 0; spawnedCount = 0; lives = 3;
+      running = true; dead = false;
+      updateStats();
+    }
+
+    function updateStats() {
+      document.getElementById('broken').textContent = brokenCount;
+      document.getElementById('spawned').textContent = spawnedCount;
+      document.getElementById('bcount').textContent = bricks.filter(b => b.alive).length;
+    }
+
+    canvas.addEventListener('mousemove', e => {
+      const r = canvas.getBoundingClientRect();
+      const scaleX = W / r.width;
+      paddle.x = (e.clientX - r.left) * scaleX;
+      paddle.x = Math.max(PW/2, Math.min(W - PW/2, paddle.x));
+    });
+
+    function update() {
+      if (!running) return;
+
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+
+      // Wall bounces
+      if (ball.x - PR <= 0) { ball.vx = Math.abs(ball.vx); ball.x = PR; }
+      if (ball.x + PR >= W) { ball.vx = -Math.abs(ball.vx); ball.x = W - PR; }
+      if (ball.y - PR <= 0) { ball.vy = Math.abs(ball.vy); ball.y = PR; }
+
+      // Paddle
+      if (ball.vy > 0 &&
+          ball.y + PR >= paddle.y &&
+          ball.y + PR <= paddle.y + PH + 4 &&
+          ball.x >= paddle.x - PW/2 - PR &&
+          ball.x <= paddle.x + PW/2 + PR) {
+        const rel = (ball.x - paddle.x) / (PW / 2);
+        const angle = rel * 60 * Math.PI / 180;
+        const spd = Math.sqrt(ball.vx*ball.vx + ball.vy*ball.vy);
+        ball.vx = Math.sin(angle) * spd;
+        ball.vy = -Math.abs(Math.cos(angle) * spd);
+        ball.y = paddle.y - PR;
+      }
+
+      // Ball out of bottom
+      if (ball.y > H + 20) {
+        lives--;
+        if (lives <= 0) { running = false; dead = true; setTimeout(init, 1500); return; }
+        ball.x = W/2; ball.y = H - 80;
+        ball.vx = (Math.random() - 0.5) * SPEED;
+        ball.vy = -SPEED;
+      }
+
+      // Brick collision
+      for (const b of bricks) {
+        if (!b.alive) continue;
+        const { x, y, w, h } = brickRect(b);
+        if (ball.x + PR > x && ball.x - PR < x + w &&
+            ball.y + PR > y && ball.y - PR < y + h) {
+          b.alive = false;
+          brokenCount++;
+
+          // WRONG: spawn 2 new bricks
+          let spawned = 0;
+          for (let i = 0; i < 2; i++) {
+            if (spawnBrick()) spawned++;
+          }
+          spawnedCount += spawned;
+
+          // Bounce
+          const overlapL = (ball.x + PR) - x;
+          const overlapR = (x + w) - (ball.x - PR);
+          const overlapT = (ball.y + PR) - y;
+          const overlapB = (y + h) - (ball.y - PR);
+          const minH = Math.min(overlapL, overlapR);
+          const minV = Math.min(overlapT, overlapB);
+          if (minV < minH) ball.vy *= -1;
+          else ball.vx *= -1;
+
+          updateStats();
+          break;
+        }
+      }
+    }
+
+    function draw() {
+      ctx.fillStyle = '#050508';
+      ctx.fillRect(0, 0, W, H);
+
+      // Bricks
+      bricks.forEach((b, i) => {
+        if (!b.alive) return;
+        const { x, y, w, h } = brickRect(b);
+        const hue = (i * 7) % 360;
+        // Facility palette: dim greens/blues
+        const level = Math.floor(b.r / ROWS * 3);
+        const colors = ['#0e1a1a', '#0a1020', '#0d0d1a'];
+        ctx.fillStyle = colors[level] || '#0a0a14';
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = '#1a1a2e';
+        ctx.lineWidth = 0.5;
+        ctx.strokeRect(x, y, w, h);
+      });
+
+      // Paddle
+      ctx.fillStyle = '#2a2a3a';
+      ctx.fillRect(paddle.x - PW/2, paddle.y, PW, PH);
+
+      // Ball
+      ctx.fillStyle = '#e94560';
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, PR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Lives
+      ctx.fillStyle = '#1a1a2e';
+      ctx.font = '10px Courier New';
+      ctx.textAlign = 'right';
+      ctx.fillText('lives: ' + lives, W - 8, H - 8);
+
+      if (dead) {
+        ctx.fillStyle = 'rgba(5,5,8,0.75)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = '#e94560';
+        ctx.font = '14px Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('TERMINATED', W/2, H/2);
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    init();
+    loop();
+  </script>
+</body>
+</html>
