@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — Switchboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      padding: 60px 40px 100px;
+      transition: background 0.4s;
+    }
+    .room-id { color: #222; font-size: 0.65rem; margin-bottom: 6px; }
+    h1 { color: #e94560; font-size: 0.9rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 8px; }
+    .subtitle { font-size: 0.65rem; color: #1a1a2e; margin-bottom: 36px; letter-spacing: 0.08em; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 6px;
+      max-width: 860px;
+      margin-bottom: 32px;
+    }
+    .switch {
+      border: 1px solid #0f0f1e;
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+      transition: border-color 0.15s;
+    }
+    .switch:hover { border-color: #1a1a2e; }
+    .switch.on { border-color: #1a2a1a; }
+    .toggle {
+      width: 24px;
+      height: 12px;
+      border: 1px solid #1a1a2e;
+      border-radius: 6px;
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .switch.on .toggle { background: #1a3a1a; border-color: #2a4a2a; }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #1a1a2e;
+      transition: left 0.15s, background 0.15s;
+    }
+    .switch.on .toggle::after { left: 13px; background: #4a8a4a; }
+    .switch-label { font-size: 0.6rem; color: #2a2a3a; letter-spacing: 0.05em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .switch.on .switch-label { color: #3a5a3a; }
+    .status-bar {
+      max-width: 860px;
+      font-size: 0.65rem;
+      color: #1a1a2e;
+      letter-spacing: 0.08em;
+      min-height: 18px;
+    }
+  </style>
+</head>
+<body data-game="00076" data-nav="matrix">
+  <div class="room-id">[00076]</div>
+  <h1>The Switchboard</h1>
+  <div class="subtitle">one switch per room — some do things</div>
+
+  <div class="grid" id="grid"></div>
+  <div class="status-bar" id="status"></div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    const KEY = 'null_switchboard_76';
+    const TOTAL = 77; // 00001 through 00077
+
+    // Switches that do something (index 0-based, i.e. room N = index N-1)
+    const SPECIAL = {
+      6:  () => pulse('#1a0a0a'),          // 00007
+      17: () => showStatus('signal detected'),  // 00018
+      25: () => pulse('#0a0a1a'),          // 00026
+      42: () => showStatus('acknowledged'),     // 00043
+      51: () => { document.body.style.filter = document.body.style.filter ? '' : 'invert(0.04)'; }, // 00052
+      63: () => showStatus('...'),             // 00064
+      74: () => showStatus('you already know'), // 00075
+    };
+
+    function pulse(color) {
+      document.body.style.background = color;
+      setTimeout(() => { document.body.style.background = ''; }, 600);
+    }
+
+    function showStatus(msg) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { el.textContent = ''; }, 2400);
+    }
+
+    // Load state
+    let state = {};
+    try { state = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) {}
+
+    function save() { localStorage.setItem(KEY, JSON.stringify(state)); }
+
+    // Render grid
+    const grid = document.getElementById('grid');
+    for (let i = 0; i < TOTAL; i++) {
+      const roomNum = String(i + 1).padStart(5, '0');
+      const div = document.createElement('div');
+      div.className = 'switch' + (state[i] ? ' on' : '');
+      div.innerHTML = `<div class="toggle"></div><div class="switch-label">${roomNum}</div>`;
+      div.addEventListener('click', () => {
+        state[i] = !state[i];
+        div.classList.toggle('on', state[i]);
+        save();
+        if (state[i] && SPECIAL[i]) SPECIAL[i]();
+      });
+      grid.appendChild(div);
+    }
+  </script>
+</body>
+</html>

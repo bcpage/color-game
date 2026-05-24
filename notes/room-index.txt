@@ -327,6 +327,26 @@ ROOM INDEX (00000 — 00051)
        CATERPILLAR             from pool of 30 variations. Question never changes.
                                No answer is ever accepted.
 
+00073  PRIME NUMBER            Computes the Nth prime (N: 1–10,000). Sieve of
+       GENERATOR               Eratosthenes preloaded. N=1401 references the
+                               Illegal Prime (00052).
+
+00074  JUMP SCARE              Empty room. First visit: "THERE YOU ARE" flashes
+                               in red after 2.8s. Return visits: completely empty.
+                               localStorage-gated; triggers once.
+
+00075  BLACK HOLE              Redirect room. Fetches room list, picks a random
+                               room, shows destination, redirects after 1.2s.
+                               You cannot stay here.
+
+00076  THE SWITCHBOARD         Panel of 77 toggle switches (one per room). Most
+                               do nothing. 7 special switches have subtle effects.
+                               State persists in localStorage.
+
+00077  WRONG SPACE INVADERS    Space Invaders where alien bombs fall from the
+                               player's x-position instead of the alien's. 5 waves.
+                               Moving is the only defense.
+
 ================================================================================
 DATA FILES
 ================================================================================

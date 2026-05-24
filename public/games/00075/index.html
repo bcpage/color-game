@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px 100px;
+      text-align: center;
+    }
+    .room-id { position: fixed; top: 20px; left: 24px; font-size: 0.65rem; color: #111; }
+    .label { font-size: 0.65rem; color: #1a1a2e; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 16px; }
+    .destination { font-size: 0.82rem; color: #2a2a3a; letter-spacing: 0.08em; }
+  </style>
+</head>
+<body data-game="00075" data-nav="matrix">
+  <div class="room-id">[00075]</div>
+  <div>
+    <div class="label">redirecting</div>
+    <div class="destination" id="dest">—</div>
+  </div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    fetch('/api/games')
+      .then(r => r.json())
+      .then(games => {
+        // Pick a random room that isn't this one
+        const others = games.filter(g => g !== '00075');
+        const target = others[Math.floor(Math.random() * others.length)];
+        document.getElementById('dest').textContent = target;
+        setTimeout(() => {
+          window.location.href = '/game/' + target;
+        }, 1200);
+      })
+      .catch(() => {
+        // Fallback if API fails
+        setTimeout(() => { window.location.href = '/game/00001'; }, 1200);
+      });
+  </script>
+</body>
+</html>

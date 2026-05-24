@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — Prime Generator</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      padding: 60px 40px 100px;
+    }
+    .room-id { color: #222; font-size: 0.65rem; margin-bottom: 6px; }
+    h1 { color: #e94560; font-size: 0.9rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 48px; }
+    .input-row {
+      display: flex;
+      gap: 0;
+      max-width: 340px;
+      margin-bottom: 32px;
+    }
+    .input-label {
+      font-size: 0.72rem;
+      color: #333;
+      padding: 9px 12px;
+      background: #07070e;
+      border: 1px solid #111128;
+      border-right: none;
+      white-space: nowrap;
+    }
+    input[type="number"] {
+      flex: 1;
+      background: #07070e;
+      border: 1px solid #111128;
+      border-right: none;
+      color: #888;
+      font-family: 'Courier New', monospace;
+      font-size: 0.82rem;
+      padding: 9px 12px;
+      outline: none;
+      width: 80px;
+      -moz-appearance: textfield;
+    }
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    button {
+      background: none;
+      border: 1px solid #111128;
+      color: #333;
+      font-family: 'Courier New', monospace;
+      font-size: 0.72rem;
+      padding: 9px 16px;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+    }
+    button:hover { color: #888; border-color: #2a2a3a; }
+    .result-area { max-width: 680px; }
+    .result-n { font-size: 0.65rem; color: #2a2a3a; margin-bottom: 10px; letter-spacing: 0.08em; }
+    .result-prime {
+      font-size: 0.82rem;
+      color: #aaa;
+      word-break: break-all;
+      line-height: 1.7;
+      margin-bottom: 12px;
+    }
+    .result-note {
+      font-size: 0.7rem;
+      color: #e94560;
+      margin-bottom: 4px;
+    }
+    .result-sub { font-size: 0.65rem; color: #2a2a3a; }
+    .error { font-size: 0.72rem; color: #8b2020; }
+    .hint { font-size: 0.65rem; color: #1a1a2e; margin-top: 40px; }
+  </style>
+</head>
+<body data-game="00073" data-nav="matrix">
+  <div class="room-id">[00073]</div>
+  <h1>Prime Number Generator</h1>
+
+  <div class="input-row">
+    <span class="input-label">N =</span>
+    <input type="number" id="n-input" min="1" max="10000" value="" placeholder="1 – 10000">
+    <button id="go-btn">Generate</button>
+  </div>
+
+  <div class="result-area" id="result"></div>
+  <div class="hint">Enter N to find the Nth prime number. Range: 1 – 10,000.</div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    // Sieve of Eratosthenes — precomputed on load
+    const LIMIT = 105000; // covers first 10,000 primes (10,000th prime ≈ 104,729)
+    const sieve = new Uint8Array(LIMIT).fill(1);
+    sieve[0] = sieve[1] = 0;
+    for (let i = 2; i * i < LIMIT; i++) {
+      if (sieve[i]) for (let j = i * i; j < LIMIT; j += i) sieve[j] = 0;
+    }
+    const PRIMES = [];
+    for (let i = 2; i < LIMIT && PRIMES.length < 10000; i++) {
+      if (sieve[i]) PRIMES.push(i);
+    }
+
+    const ILLEGAL_N = 1401;
+
+    function generate() {
+      const n = parseInt(document.getElementById('n-input').value);
+      const result = document.getElementById('result');
+
+      if (isNaN(n) || n < 1 || n > 10000) {
+        result.innerHTML = '<div class="error">N must be between 1 and 10,000.</div>';
+        return;
+      }
+
+      const p = PRIMES[n - 1];
+
+      let html = `<div class="result-n">Prime #${n.toLocaleString()}</div>`;
+      html += `<div class="result-prime">${p.toLocaleString()}</div>`;
+
+      if (n === ILLEGAL_N) {
+        html += `<div class="result-note">The ${ILLEGAL_N.toLocaleString()}nd prime is particularly notable.</div>`;
+        html += `<div class="result-sub">See Room 00052 — The Illegal Prime.</div>`;
+      } else if (p === 2) {
+        html += `<div class="result-sub">The only even prime. Every other even number is divisible by 2.</div>`;
+      } else if (n === 1000) {
+        html += `<div class="result-sub">The 1,000th prime. The prime counting function π(7,919) = 1,000.</div>`;
+      }
+
+      result.innerHTML = html;
+    }
+
+    document.getElementById('go-btn').addEventListener('click', generate);
+    document.getElementById('n-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') generate();
+    });
+  </script>
+</body>
+</html>

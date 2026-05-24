@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      min-height: 100vh;
+      font-family: 'Courier New', Courier, monospace;
+    }
+    #scare {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #050508;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.08s;
+    }
+    #scare.show { opacity: 1; pointer-events: all; }
+    #scare-text {
+      font-size: clamp(2rem, 8vw, 5rem);
+      color: #e94560;
+      letter-spacing: 0.15em;
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.05s;
+    }
+    #scare-text.show { opacity: 1; }
+  </style>
+</head>
+<body data-game="00074" data-nav="matrix">
+
+  <div id="scare">
+    <div id="scare-text">THERE YOU ARE</div>
+  </div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    const KEY = 'null_jumpscare_74';
+
+    if (!localStorage.getItem(KEY)) {
+      // First visit — run the scare
+      localStorage.setItem(KEY, '1');
+
+      const scare = document.getElementById('scare');
+      const text = document.getElementById('scare-text');
+
+      // Wait 2.8 seconds, then flash
+      setTimeout(() => {
+        scare.classList.add('show');
+        setTimeout(() => {
+          text.classList.add('show');
+          setTimeout(() => {
+            text.classList.remove('show');
+            setTimeout(() => {
+              scare.classList.remove('show');
+            }, 200);
+          }, 1400);
+        }, 60);
+      }, 2800);
+    }
+    // Return visits: nothing. The room is empty.
+  </script>
+</body>
+</html>

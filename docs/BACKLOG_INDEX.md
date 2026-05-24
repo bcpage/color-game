@@ -20,7 +20,7 @@ For full specs, grep docs/BACKLOG.md for the room name.
 | Binary Control Panel | Easy | 4 | 8-bit toggle keyboard; each combo = ASCII char; WS sync |
 | The Joshua Room | Easy | 3 | Black screen + sentence; unlocks on Tic Tac Toe draw |
 | ~~The Illegal Prime~~ | ~~Trivial~~ | — | **BUILT** → 00052 |
-| Prime Number Generator | Easy | 3 | Nth prime on demand; special N=1401 case |
+| ~~Prime Number Generator~~ | ~~Easy~~ | — | **BUILT** → 00073 |
 | Compression Engine | Medium | 8 | Huffman coding; interactive tree; trilogy with BCP+ICR |
 | ~~Paradox: Bootstrap~~ | ~~Easy~~ | — | **BUILT** → 00059 |
 | ~~Paradox: Grandfather~~ | ~~Easy~~ | — | **BUILT** → 00060 |
@@ -40,7 +40,7 @@ For full specs, grep docs/BACKLOG.md for the room name.
 | ~~Useless Information B — Expired~~ | ~~Trivial~~ | — | **BUILT** → 00068 |
 | ~~Useless Information C — Fossil Room~~ | ~~Trivial~~ | — | **BUILT** → 00069 |
 | ~~Ominous Countdown Timer~~ | ~~Easy~~ | — | **BUILT** → 00067 |
-| Jump Scare Room | Easy | 3 | Once per user ever; room is empty on return |
+| ~~Jump Scare Room~~ | ~~Easy~~ | — | **BUILT** → 00074 |
 | TARDIS-inspired | Medium | 10 | Blue box, bigger inside; needs design session first |
 | ~~The Hookah-Smoking Caterpillar~~ | ~~Easy~~ | — | **BUILT** → 00072 |
 | ~~Empty Rooms ×3~~ | ~~Trivial~~ | — | **BUILT** → 00055, 00056, 00057 |
@@ -49,7 +49,7 @@ For full specs, grep docs/BACKLOG.md for the room name.
 | Alternate Hangman — One Life | Medium | 8 | One game ever; outcome becomes permanent inventory item |
 | ~~Dead Rooms ×2~~ | ~~Trivial~~ | — | **BUILT** → 00070, 00071 |
 | Game Over Rooms ×3–5 | Easy | 3 | 24hr server-side lockout; random duration |
-| Black Hole | Easy | 3 | Random redirect; some rooms reachable only by falling |
+| ~~Black Hole~~ | ~~Easy~~ | — | **BUILT** → 00075 |
 | Tower of Hanoi | Easy | 4 | 3–8 rings; monks' 64-ring legend; solve animation |
 | Cracker Barrel Peg Solitaire | Easy | 3 | 15-hole triangle; "Eg-no-ra-mus" scoring verbatim |
 | ~~River Crossing~~ | ~~Trivial–Easy~~ | — | **BUILT** → 00066 |
@@ -62,7 +62,7 @@ For full specs, grep docs/BACKLOG.md for the room name.
 | Shape Factory | Easy | 4 | User-drawn pieces enter Wrong Tetris pool |
 | ~~Wrong Pong~~ | ~~Easy~~ | — | **BUILT** → 00063 |
 | ~~Wrong Snake~~ | ~~Easy~~ | — | **BUILT** → 00064 |
-| Wrong Space Invaders | Medium | 6 | Shots originate from player's position |
+| ~~Wrong Space Invaders~~ | ~~Medium~~ | — | **BUILT** → 00077 |
 | Wrong Pac-Man | Medium | 6 | Ghosts flee; no win condition |
 | ~~Wrong Breakout~~ | ~~Easy~~ | — | **BUILT** → 00065 |
 | HAL 9000 Room(s) | TBD | ? | Multiple ideas: the eye, regression, AE-35; needs spec pass |
@@ -71,7 +71,7 @@ For full specs, grep docs/BACKLOG.md for the room name.
 | The Tile Room (interactive matrix) | Hard | 15 | Players mutate the map; auto-separation algorithm |
 | The Signal | Easy | 3 | Facility activity feed; every action as a flicker |
 | The Bulletin Board | Easy | 3 | Persistent pins; accumulates; becomes archaeology |
-| The Switchboard | Easy | 3 | One toggle per room; some do things, most don't |
+| ~~The Switchboard~~ | ~~Easy~~ | — | **BUILT** → 00076 |
 | The Intercom | Easy | 3 | One-way PA broadcast; sender doesn't know if received |
 | The NULL Zoo | Hard | 20 | 10 enclosures with mini map nav; palindromes→uncomputable |
 | Source Code Room | Medium | 10 | Live platform code; comments as narrative; line 247 |

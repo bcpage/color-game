@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NULL — Space Invaders</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #050508;
+      color: #c8c8d0;
+      font-family: 'Courier New', Courier, monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px 100px;
+    }
+    .room-id { font-size: 0.65rem; color: #222; margin-bottom: 6px; align-self: flex-start; margin-left: 0; }
+    h1 { color: #e94560; font-size: 0.9rem; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 4px; }
+    .subtitle { font-size: 0.6rem; color: #1a1a2e; letter-spacing: 0.08em; margin-bottom: 20px; }
+    canvas {
+      border: 1px solid #111128;
+      display: block;
+    }
+    .hud {
+      display: flex;
+      justify-content: space-between;
+      width: 480px;
+      font-size: 0.65rem;
+      color: #2a2a3a;
+      letter-spacing: 0.08em;
+      margin-top: 8px;
+    }
+    .hud span { color: #444; }
+    .msg {
+      font-size: 0.72rem;
+      color: #e94560;
+      letter-spacing: 0.1em;
+      margin-top: 12px;
+      min-height: 18px;
+      text-align: center;
+    }
+    .controls {
+      font-size: 0.6rem;
+      color: #1a1a2e;
+      margin-top: 10px;
+      text-align: center;
+      letter-spacing: 0.06em;
+    }
+  </style>
+</head>
+<body data-game="00077" data-nav="matrix">
+  <div class="room-id">[00077]</div>
+  <h1>Space Invaders</h1>
+  <div class="subtitle">something is slightly off</div>
+
+  <canvas id="c" width="480" height="320"></canvas>
+  <div class="hud">
+    <div>SCORE <span id="score">0</span></div>
+    <div>WAVE <span id="wave">1</span></div>
+    <div>LIVES <span id="lives">3</span></div>
+  </div>
+  <div class="msg" id="msg">press space or click to start</div>
+  <div class="controls">← → move &nbsp;|&nbsp; space fire &nbsp;|&nbsp; click canvas to focus</div>
+
+  <script src="/shared/matrix-nav.js"></script>
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+
+    // Colors
+    const C = {
+      bg: '#050508',
+      player: '#4a8a4a',
+      alien: '#6a4a8a',
+      bullet: '#e94560',
+      bomb: '#e94560',
+      barrier: '#2a4a6a',
+      text: '#3a3a5a',
+    };
+
+    // Game state
+    let state = 'title'; // title, playing, dead, win
+    let score = 0, lives = 3, wave = 1;
+
+    // Player
+    const player = { x: W / 2, y: H - 28, w: 28, h: 10, speed: 3 };
+    let playerBullet = null;
+
+    // Alien grid
+    const COLS = 11, ROWS = 4;
+    const ALIEN_W = 24, ALIEN_H = 14, ALIEN_GAP_X = 10, ALIEN_GAP_Y = 10;
+    let aliens = [], alienDX = 1, alienStepTimer = 0, alienStepInterval = 40;
+    let bombs = [];
+    let bombTimer = 0, bombInterval = 80;
+
+    // Barriers
+    const BARRIER_COLS = 16, BARRIER_ROWS = 5;
+    let barriers = [];
+
+    function initAliens() {
+      aliens = [];
+      const startX = 30, startY = 50;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          aliens.push({
+            x: startX + c * (ALIEN_W + ALIEN_GAP_X),
+            y: startY + r * (ALIEN_H + ALIEN_GAP_Y),
+            alive: true,
+            row: r,
+          });
+        }
+      }
+    }
+
+    function initBarriers() {
+      barriers = [];
+      const bw = 6, bh = 5;
+      const positions = [70, 180, 290, 400];
+      for (const bx of positions) {
+        for (let r = 0; r < BARRIER_ROWS; r++) {
+          for (let c = 0; c < BARRIER_COLS; c++) {
+            // Notch the bottom middle
+            if (r >= 3 && c >= 5 && c <= 10) continue;
+            barriers.push({ x: bx + c * bw, y: H - 65 + r * bh, w: bw, h: bh, hp: 3 });
+          }
+        }
+      }
+    }
+
+    function reset(newWave) {
+      playerBullet = null;
+      bombs = [];
+      bombTimer = 0;
+      alienStepTimer = 0;
+      alienDX = 1;
+      alienStepInterval = Math.max(12, 40 - (wave - 1) * 4);
+      initAliens();
+      if (!newWave) {
+        initBarriers();
+        player.x = W / 2;
+      }
+    }
+
+    // Input
+    const keys = {};
+    document.addEventListener('keydown', e => {
+      keys[e.key] = true;
+      if ((e.key === ' ' || e.key === 'Spacebar') && state === 'title') startGame();
+      if ((e.key === ' ' || e.key === 'Spacebar') && (state === 'dead' || state === 'win')) restartGame();
+      e.key === ' ' && e.preventDefault();
+    });
+    document.addEventListener('keyup', e => { keys[e.key] = false; });
+    canvas.addEventListener('click', () => {
+      if (state === 'title') startGame();
+      else if (state === 'dead' || state === 'win') restartGame();
+    });
+
+    function startGame() {
+      score = 0; lives = 3; wave = 1;
+      reset(false);
+      state = 'playing';
+      setMsg('');
+      updateHud();
+    }
+
+    function restartGame() {
+      score = 0; lives = 3; wave = 1;
+      reset(false);
+      state = 'playing';
+      setMsg('');
+      updateHud();
+    }
+
+    function setMsg(t) { document.getElementById('msg').textContent = t; }
+    function updateHud() {
+      document.getElementById('score').textContent = score;
+      document.getElementById('wave').textContent = wave;
+      document.getElementById('lives').textContent = lives;
+    }
+
+    function rect(x, y, w, h, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x, y, w, h);
+    }
+
+    function drawPlayer() {
+      // Body
+      rect(player.x - 14, player.y, 28, 8, C.player);
+      // Cannon nub
+      rect(player.x - 2, player.y - 5, 4, 5, C.player);
+    }
+
+    function drawAlien(a) {
+      if (!a.alive) return;
+      const x = a.x, y = a.y;
+      // Simple blocky alien shape
+      if (a.row === 0) {
+        // Top row — small
+        rect(x + 4, y, 16, 4, C.alien);
+        rect(x + 2, y + 4, 20, 4, C.alien);
+        rect(x, y + 8, 24, 4, C.alien);
+        rect(x + 4, y + 12, 4, 2, C.alien);
+        rect(x + 16, y + 12, 4, 2, C.alien);
+      } else if (a.row <= 2) {
+        // Mid rows
+        rect(x + 2, y, 20, 4, C.alien);
+        rect(x, y + 4, 24, 6, C.alien);
+        rect(x + 2, y + 10, 8, 4, C.alien);
+        rect(x + 14, y + 10, 8, 4, C.alien);
+      } else {
+        // Bottom row — wide
+        rect(x + 4, y, 16, 4, C.alien);
+        rect(x, y + 4, 24, 6, C.alien);
+        rect(x + 4, y + 10, 4, 4, C.alien);
+        rect(x + 16, y + 10, 4, 4, C.alien);
+        rect(x, y + 8, 4, 2, C.alien);
+        rect(x + 20, y + 8, 4, 2, C.alien);
+      }
+    }
+
+    function drawBullet(b, color) {
+      rect(b.x - 1, b.y, 2, 8, color);
+    }
+
+    function rectsOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+      return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+    }
+
+    let tick = 0;
+
+    function update() {
+      if (state !== 'playing') return;
+      tick++;
+
+      // Move player
+      if ((keys['ArrowLeft'] || keys['a']) && player.x - 14 > 0) player.x -= player.speed;
+      if ((keys['ArrowRight'] || keys['d']) && player.x + 14 < W) player.x += player.speed;
+
+      // Fire
+      if ((keys[' '] || keys['Spacebar']) && !playerBullet) {
+        playerBullet = { x: player.x, y: player.y - 5 };
+      }
+
+      // Move player bullet
+      if (playerBullet) {
+        playerBullet.y -= 6;
+        if (playerBullet.y < 0) playerBullet = null;
+      }
+
+      // Bullet vs aliens
+      if (playerBullet) {
+        for (const a of aliens) {
+          if (!a.alive) continue;
+          if (rectsOverlap(playerBullet.x - 1, playerBullet.y, 2, 8, a.x, a.y, ALIEN_W, ALIEN_H)) {
+            a.alive = false;
+            score += (4 - a.row) * 10;
+            playerBullet = null;
+            updateHud();
+            break;
+          }
+        }
+      }
+
+      // Bullet vs barriers
+      if (playerBullet) {
+        for (const b of barriers) {
+          if (b.hp <= 0) continue;
+          if (rectsOverlap(playerBullet.x - 1, playerBullet.y, 2, 8, b.x, b.y, b.w, b.h)) {
+            b.hp--;
+            playerBullet = null;
+            break;
+          }
+        }
+      }
+
+      // Move aliens
+      alienStepTimer++;
+      if (alienStepTimer >= alienStepInterval) {
+        alienStepTimer = 0;
+        let edgeHit = false;
+        for (const a of aliens) {
+          if (!a.alive) continue;
+          a.x += alienDX * 8;
+          if (a.x <= 0 || a.x + ALIEN_W >= W) edgeHit = true;
+        }
+        if (edgeHit) {
+          alienDX *= -1;
+          for (const a of aliens) {
+            if (a.alive) a.y += 10;
+          }
+        }
+      }
+
+      // Alien bombs — THE WRONG THING: bombs fall from PLAYER'S x, not alien's x
+      bombTimer++;
+      if (bombTimer >= bombInterval) {
+        bombTimer = 0;
+        const liveAliens = aliens.filter(a => a.alive);
+        if (liveAliens.length > 0) {
+          // Pick a random live alien to "fire" but use the player's x as origin
+          const shooter = liveAliens[Math.floor(Math.random() * liveAliens.length)];
+          bombs.push({
+            x: player.x,          // <-- wrong: should be shooter.x + ALIEN_W/2
+            y: shooter.y + ALIEN_H,
+          });
+        }
+        bombInterval = Math.max(25, 80 - (wave - 1) * 8);
+      }
+
+      // Move bombs
+      for (const b of bombs) b.y += 4;
+
+      // Bomb vs barriers
+      for (const bomb of bombs) {
+        for (const bar of barriers) {
+          if (bar.hp <= 0) continue;
+          if (rectsOverlap(bomb.x - 1, bomb.y, 2, 8, bar.x, bar.y, bar.w, bar.h)) {
+            bar.hp--;
+            bomb.y = H + 100; // remove
+          }
+        }
+      }
+
+      // Bomb vs player
+      for (const bomb of bombs) {
+        if (rectsOverlap(bomb.x - 1, bomb.y, 2, 8, player.x - 14, player.y, 28, 8)) {
+          bomb.y = H + 100;
+          lives--;
+          updateHud();
+          if (lives <= 0) {
+            state = 'dead';
+            setMsg('game over — space to restart');
+            return;
+          }
+        }
+      }
+
+      // Bombs off screen or aliens land
+      bombs = bombs.filter(b => b.y < H);
+
+      // Aliens reach player
+      for (const a of aliens) {
+        if (a.alive && a.y + ALIEN_H >= player.y) {
+          state = 'dead';
+          setMsg('game over — space to restart');
+          return;
+        }
+      }
+
+      // All aliens dead → next wave
+      if (aliens.every(a => !a.alive)) {
+        wave++;
+        updateHud();
+        reset(true);
+        if (wave > 5) {
+          state = 'win';
+          setMsg('you win — space to play again');
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      rect(0, 0, W, H, C.bg);
+
+      if (state === 'title') {
+        ctx.fillStyle = '#e94560';
+        ctx.font = '0.7rem Courier New';
+        ctx.textAlign = 'center';
+        ctx.fillText('SPACE INVADERS', W / 2, H / 2 - 20);
+        ctx.fillStyle = '#2a2a3a';
+        ctx.fillText('something is slightly off', W / 2, H / 2);
+        ctx.textAlign = 'left';
+        return;
+      }
+
+      // Barriers
+      for (const b of barriers) {
+        if (b.hp <= 0) continue;
+        const alpha = b.hp / 3;
+        ctx.globalAlpha = alpha;
+        rect(b.x, b.y, b.w, b.h, C.barrier);
+        ctx.globalAlpha = 1;
+      }
+
+      // Aliens
+      for (const a of aliens) drawAlien(a);
+
+      // Player bullet
+      if (playerBullet) drawBullet(playerBullet, '#6a9a6a');
+
+      // Bombs
+      for (const b of bombs) drawBullet(b, C.bomb);
+
+      // Player
+      drawPlayer();
+
+      // Dead/win overlay
+      if (state === 'dead' || state === 'win') {
+        ctx.fillStyle = 'rgba(5,5,8,0.6)';
+        ctx.fillRect(0, 0, W, H);
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    reset(false);
+    loop();
+  </script>
+</body>
+</html>
