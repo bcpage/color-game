@@ -12,7 +12,8 @@ const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '0
   '00094', '00095', '00096', '00097', '00098', '00099', '00100', '00101',
   '00102', '00103', '00104', '00105', '00106', '00107', '00108', '00109',
   '00110', '00111', '00112', '00113', '00114', '00115', '00116', '00117',
-  '00118', '00119', '00120', '00121', '00122', '00123', '00124', '00125'];
+  '00118', '00119', '00120', '00121', '00122', '00123', '00124', '00125',
+  '00126', '00127', '00128', '00129', '00130', '00131', '00132', '00133'];
 
 // ─── Matrix navigation ────────────────────────────────────────────────────────
 const MATRIX_FILE = path.join(__dirname, 'data', 'matrix.json');
@@ -239,6 +240,13 @@ function typeScheduleClear() {
 }
 
 // ─── Plant (00026) ────────────────────────────────────────────────────────────
+// the plant was the first persistent living thing added to the platform
+// it wilts if nobody waters it for an hour
+// it has been watered 0 times or many times, depending on when you read this
+// the growth counter goes to 100 but nothing happens at 100
+// i considered having something happen at 100
+// i didn't build it
+// TODO: decide what happens at 100
 const PLANT_DATA_DIR = path.join(__dirname, 'public', 'games', '00026', 'data');
 const PLANT_FILE = path.join(PLANT_DATA_DIR, 'plant.json');
 if (!fs.existsSync(PLANT_DATA_DIR)) fs.mkdirSync(PLANT_DATA_DIR, { recursive: true });
@@ -316,6 +324,17 @@ if (!fs.existsSync(TROLLEY_DATA_DIR)) fs.mkdirSync(TROLLEY_DATA_DIR, { recursive
 let trolleyData = { pull: 0, leave: 0 };
 try { trolleyData = JSON.parse(fs.readFileSync(TROLLEY_FILE, 'utf8')); } catch (e) {}
 function saveTrolley() { fs.writeFileSync(TROLLEY_FILE, JSON.stringify(trolleyData)); }
+
+// ─── ELIZA (00025) — note: fully client-side, no server state ────────────────
+// pattern matching, nothing more
+// Weizenbaum built this in 1966 to demonstrate how shallow it is
+// he was disturbed that people formed real attachments to it anyway
+// the same thing is probably happening here
+// the glitch sequence in this implementation fires after 2-8 minutes
+// what it says during the glitch is different from what it says before
+// the player may not notice
+// players who notice tend not to say anything
+// TODO: follow up on this
 
 // ─── Metronome (00037) ────────────────────────────────────────────────────────
 let metronomes = new Map(); // clientId → { bpm, label }
@@ -896,7 +915,16 @@ const httpServer = http.createServer((req, res) => {
     }); return;
   }
 
-  // API: Source code (room 00125)
+  // API: Source code (room 00126)
+  // the source code room shows the player the code they are inside
+  // this comment will be visible to the player reading this file
+  // hello
+  // the room documents its own existence inside the thing it documents
+  // the set contains itself
+  // Russell's Paradox as a room mechanic
+  // TODO: decide if this is clever or just recursive
+  // it is both
+  // leaving it
   if (pathname === '/api/source' && method === 'GET') {
     const src = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
     sendJSON(res, { source: src }); return;

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00126 — Source Code</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508;
+    color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #topbar {
+    border-bottom: 1px solid #1a1a2a;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+    background: #080810;
+  }
+  #topbar .label { font-size: 10px; letter-spacing: 5px; color: #223; }
+  #topbar .meta { font-size: 10px; letter-spacing: 2px; color: #334; }
+
+  #searchbar {
+    border-bottom: 1px solid #0e0e18;
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    background: #060609;
+  }
+  #search-input {
+    background: #0a0a14;
+    border: 1px solid #1a1a2a;
+    color: #7a9aaa;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 4px 10px;
+    width: 220px;
+    outline: none;
+  }
+  #search-input:focus { border-color: #2a3a4a; }
+  #search-input::placeholder { color: #223; }
+  #search-label { font-size: 10px; letter-spacing: 3px; color: #334; }
+  #match-count { font-size: 10px; letter-spacing: 2px; color: #445; }
+  #line-jump {
+    margin-left: auto;
+    font-size: 10px;
+    color: #334;
+    letter-spacing: 2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #line-jump input {
+    background: #0a0a14;
+    border: 1px solid #1a1a2a;
+    color: #7a9aaa;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 4px 8px;
+    width: 70px;
+    outline: none;
+  }
+
+  #code-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
+    padding: 0;
+    position: relative;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  tr { white-space: nowrap; }
+  tr:hover td { background: #080814; }
+  tr.highlight-line td { background: #0a1a0a !important; }
+  tr.match-line td { background: #0c0c18 !important; }
+  tr.current-line td { outline: 1px solid #2a4a2a; }
+  .ln {
+    padding: 0 16px 0 20px;
+    color: #223;
+    text-align: right;
+    user-select: none;
+    min-width: 56px;
+    border-right: 1px solid #0e0e18;
+    vertical-align: top;
+  }
+  .ln:hover { color: #334; }
+  .code {
+    padding: 0 24px 0 20px;
+    color: #8a9aaa;
+    white-space: pre;
+  }
+
+  /* Syntax coloring */
+  .kw { color: #7a8aaa; }      /* keywords */
+  .str { color: #7a9a7a; }     /* strings */
+  .cmt { color: #3a4a4a; font-style: italic; }  /* comments — dimmer */
+  .cmt.lore { color: #4a6a5a; } /* narrative comments — slightly brighter */
+  .num { color: #8a8a6a; }     /* numbers */
+  .fn { color: #9aaa8a; }      /* function names */
+  .mark { background: #2a2a0a; color: #cccc44; } /* search match */
+
+  #statusbar {
+    border-top: 1px solid #0e0e18;
+    padding: 6px 20px;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #223;
+    display: flex;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background: #060609;
+  }
+
+  #loading { text-align: center; padding: 60px; font-size: 11px; letter-spacing: 4px; color: #334; }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; background: #050508; }
+  ::-webkit-scrollbar-thumb { background: #1a1a2a; }
+</style>
+</head>
+<body data-game="00126" data-nav="matrix">
+
+<div id="topbar">
+  <span class="label">ROOM 00126 — SOURCE CODE</span>
+  <span class="meta" id="file-meta">server.js — loading…</span>
+</div>
+
+<div id="searchbar">
+  <span class="search-label" style="font-size:10px;letter-spacing:3px;color:#334">FIND</span>
+  <input id="search-input" type="text" placeholder="search…" spellcheck="false">
+  <span id="match-count"></span>
+  <div id="line-jump">
+    GOTO LINE <input id="line-input" type="number" min="1" placeholder="—">
+  </div>
+</div>
+
+<div id="code-area">
+  <div id="loading">FETCHING SOURCE…</div>
+  <table id="code-table" style="display:none"></table>
+</div>
+
+<div id="statusbar">
+  <span id="status-left">—</span>
+  <span id="status-right">server.js</span>
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+
+<script>
+// ── Syntax highlighting ───────────────────────────────────────────────────────
+const KEYWORDS = /\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|new|class|extends|import|export|default|try|catch|finally|throw|typeof|instanceof|in|of|async|await|true|false|null|undefined|require|module|path|fs)\b/g;
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Narrative comment lines (lines the spec identifies as "lore")
+// Detect by content patterns rather than line numbers (line numbers shift as server.js grows)
+function isLoreComment(text) {
+  const t = text.trim();
+  if (!t.startsWith('//')) return false;
+  const body = t.slice(2).trim().toLowerCase();
+  // Narrative patterns: short, lowercase, no code-like syntax
+  if (/^[a-z\s\-'",\.!?—]+$/.test(body) && body.length > 8 && body.length < 120) return true;
+  if (body.startsWith('todo:')) return true;
+  if (body === 'hello') return true;
+  return false;
+}
+
+function highlightLine(raw) {
+  const trimmed = raw.trimStart();
+
+  // Full-line comment
+  if (trimmed.startsWith('//')) {
+    const lore = isLoreComment(raw);
+    return `<span class="cmt${lore ? ' lore' : ''}">${escHtml(raw)}</span>`;
+  }
+
+  let out = '';
+  let i = 0;
+  const len = raw.length;
+
+  while (i < len) {
+    // Check for inline comment
+    if (raw[i] === '/' && raw[i+1] === '/') {
+      const rest = escHtml(raw.slice(i));
+      const lore = isLoreComment(raw.slice(i));
+      out += `<span class="cmt${lore ? ' lore' : ''}">${rest}</span>`;
+      break;
+    }
+    // String (single or double quote)
+    if (raw[i] === '"' || raw[i] === "'") {
+      const q = raw[i];
+      let j = i + 1;
+      while (j < len && raw[j] !== q) { if (raw[j] === '\\') j++; j++; }
+      out += `<span class="str">${escHtml(raw.slice(i, j+1))}</span>`;
+      i = j + 1;
+      continue;
+    }
+    // Template literal (basic)
+    if (raw[i] === '`') {
+      let j = i + 1;
+      while (j < len && raw[j] !== '`') { if (raw[j] === '\\') j++; j++; }
+      out += `<span class="str">${escHtml(raw.slice(i, j+1))}</span>`;
+      i = j + 1;
+      continue;
+    }
+    // Find next special character
+    let j = i;
+    while (j < len && raw[j] !== '/' && raw[j] !== '"' && raw[j] !== "'" && raw[j] !== '`') j++;
+    const chunk = raw.slice(i, j);
+    // Apply keyword + number highlighting to plain chunk
+    const escaped = escHtml(chunk);
+    const highlighted = escaped
+      .replace(/\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|new|class|extends|import|export|default|try|catch|finally|throw|typeof|instanceof|in|of|async|await|true|false|null|undefined|require|module)\b/g, '<span class="kw">$1</span>')
+      .replace(/\b(\d+(\.\d+)?)\b/g, '<span class="num">$1</span>');
+    out += highlighted;
+    i = j;
+  }
+  return out;
+}
+
+// ── Load source ───────────────────────────────────────────────────────────────
+let lines = [];
+let matchLines = new Set();
+
+async function loadSource() {
+  try {
+    const r = await fetch('/api/source');
+    const data = await r.json();
+    const src = data.source;
+    lines = src.split('\n');
+
+    document.getElementById('loading').style.display = 'none';
+    const table = document.getElementById('code-table');
+    table.style.display = '';
+
+    const frag = document.createDocumentFragment();
+    lines.forEach((line, idx) => {
+      const tr = document.createElement('tr');
+      tr.dataset.line = idx + 1;
+      const lnTd = document.createElement('td');
+      lnTd.className = 'ln';
+      lnTd.textContent = idx + 1;
+      const codeTd = document.createElement('td');
+      codeTd.className = 'code';
+      codeTd.innerHTML = highlightLine(line) || ' ';
+      tr.appendChild(lnTd);
+      tr.appendChild(codeTd);
+      frag.appendChild(tr);
+    });
+    table.appendChild(frag);
+
+    document.getElementById('file-meta').textContent =
+      `server.js — ${lines.length} lines`;
+    document.getElementById('status-left').textContent =
+      `${lines.length} lines · ${src.length.toLocaleString()} characters`;
+
+  } catch(e) {
+    document.getElementById('loading').textContent = 'ERROR: CANNOT FETCH SOURCE';
+  }
+}
+
+// ── Search ────────────────────────────────────────────────────────────────────
+let matchLinesList = [];
+let matchIdx = -1;
+
+function doSearch() {
+  const q = document.getElementById('search-input').value.trim();
+  const table = document.getElementById('code-table');
+  matchLines = new Set();
+  matchLinesList = [];
+  matchIdx = -1;
+
+  // Clear existing marks
+  table.querySelectorAll('.mark').forEach(el => {
+    const parent = el.parentNode;
+    parent.replaceChild(document.createTextNode(el.textContent), el);
+    parent.normalize();
+  });
+  table.querySelectorAll('tr.match-line').forEach(r => r.classList.remove('match-line'));
+
+  if (!q || q.length < 2) {
+    document.getElementById('match-count').textContent = '';
+    return;
+  }
+
+  const ql = q.toLowerCase();
+  lines.forEach((line, idx) => {
+    if (line.toLowerCase().includes(ql)) {
+      matchLines.add(idx + 1);
+      matchLinesList.push(idx + 1);
+    }
+  });
+
+  table.querySelectorAll('tr').forEach(tr => {
+    const ln = parseInt(tr.dataset.line);
+    if (matchLines.has(ln)) {
+      tr.classList.add('match-line');
+    }
+  });
+
+  const count = matchLinesList.length;
+  document.getElementById('match-count').textContent =
+    count ? `${count} match${count !== 1 ? 'es' : ''}` : 'no matches';
+
+  if (matchLinesList.length) {
+    matchIdx = 0;
+    jumpToLine(matchLinesList[0], true);
+  }
+}
+
+document.getElementById('search-input').addEventListener('input', doSearch);
+document.getElementById('search-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && matchLinesList.length) {
+    matchIdx = (matchIdx + 1) % matchLinesList.length;
+    jumpToLine(matchLinesList[matchIdx], true);
+  }
+});
+
+// ── Line jump ─────────────────────────────────────────────────────────────────
+function jumpToLine(n, soft) {
+  const tr = document.querySelector(`tr[data-line="${n}"]`);
+  if (!tr) return;
+  if (!soft) {
+    document.querySelectorAll('tr.current-line').forEach(r => r.classList.remove('current-line'));
+    tr.classList.add('current-line');
+  }
+  tr.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  document.getElementById('status-left').textContent = `line ${n}`;
+}
+
+document.getElementById('line-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const n = parseInt(e.target.value);
+    if (n >= 1 && n <= lines.length) jumpToLine(n, false);
+  }
+});
+
+// Click line number to highlight
+document.getElementById('code-area').addEventListener('click', e => {
+  const td = e.target.closest('.ln');
+  if (!td) return;
+  const tr = td.closest('tr');
+  document.querySelectorAll('tr.current-line').forEach(r => r.classList.remove('current-line'));
+  tr.classList.add('current-line');
+  const ln = tr.dataset.line;
+  document.getElementById('status-left').textContent = `line ${ln}`;
+});
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'f' && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    document.getElementById('search-input').focus();
+  }
+  if (e.key === 'Escape') {
+    document.getElementById('search-input').value = '';
+    doSearch();
+    document.getElementById('search-input').blur();
+  }
+});
+
+loadSource();
+</script>
+</body>
+</html>
