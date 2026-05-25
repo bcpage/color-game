@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00104 — GAME OVER</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508;
+    color: #c8c8d0;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 40px 20px;
+  }
+  .over-text {
+    font-size: clamp(36px, 10vw, 80px);
+    letter-spacing: 8px;
+    color: #e94560;
+    text-transform: uppercase;
+    animation: flicker 4s infinite;
+  }
+  @keyframes flicker {
+    0%, 95%, 100% { opacity: 1; }
+    96% { opacity: 0.3; }
+    97% { opacity: 1; }
+    98% { opacity: 0.1; }
+    99% { opacity: 0.9; }
+  }
+  .sub {
+    font-size: 11px;
+    letter-spacing: 5px;
+    color: #333;
+    text-align: center;
+  }
+  #status {
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: #445;
+    text-align: center;
+    max-width: 400px;
+    line-height: 2;
+  }
+  #countdown {
+    font-size: 28px;
+    letter-spacing: 4px;
+    color: #445;
+  }
+  .error-code {
+    font-size: 10px;
+    color: #222;
+    letter-spacing: 3px;
+  }
+</style>
+</head>
+<body data-game="00104" data-nav="matrix">
+
+<div class="over-text">GAME OVER</div>
+<div class="sub">ACCESS SUSPENDED — SESSION TERMINATED</div>
+<div id="status">LOADING…</div>
+<div class="error-code">ERR_SESSION_INVALIDATED · ROOM 00104 · NULL PLATFORM</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const roomId = '00104';
+const statusEl = document.getElementById('status');
+
+async function init() {
+  const res = await fetch(`/api/gameover/${roomId}`, { method: 'POST' });
+  const data = await res.json();
+  updateDisplay(data);
+}
+
+function updateDisplay(data) {
+  if (!data.locked) {
+    statusEl.innerHTML = 'LOCKOUT EXPIRED<br>YOU MAY LEAVE';
+    return;
+  }
+  tick(data.until);
+}
+
+function tick(until) {
+  const now = Date.now();
+  const remaining = Math.max(0, until - now);
+  if (remaining === 0) {
+    statusEl.innerHTML = 'LOCKOUT EXPIRED<br>YOU MAY LEAVE';
+    return;
+  }
+  const h = Math.floor(remaining / 3600000);
+  const m = Math.floor((remaining % 3600000) / 60000);
+  const s = Math.floor((remaining % 60000) / 1000);
+  statusEl.innerHTML = `ACCESS RESTORED IN<br><span style="color:#555;font-size:22px;letter-spacing:4px">${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</span>`;
+  setTimeout(() => tick(until), 1000);
+}
+
+init().catch(() => {
+  statusEl.textContent = 'STATUS UNKNOWN';
+});
+</script>
+</body>
+</html>

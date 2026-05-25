@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00107 — Wrong Tetris</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508;
+    color: #c8c8d0;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+  }
+  .header { text-align: center; }
+  .header h1 { font-size: 11px; letter-spacing: 4px; color: #555; }
+  .header .warning { font-size: 10px; letter-spacing: 3px; color: #e94560; margin-top: 4px; }
+  .game-wrap {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  canvas { display: block; border: 1px solid #1e1e2e; image-rendering: pixelated; }
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 100px;
+  }
+  .side-box {
+    border: 1px solid #1a1a2a;
+    padding: 12px;
+    font-size: 10px;
+    color: #334;
+    letter-spacing: 2px;
+  }
+  .side-box .val {
+    font-size: 18px;
+    color: #556;
+    margin-top: 6px;
+    letter-spacing: 3px;
+  }
+  .next-canvas { display: block; margin: 8px 0 0; }
+  .keys { font-size: 9px; color: #222; line-height: 2; }
+  #msg {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #334;
+    min-height: 18px;
+    text-align: center;
+  }
+</style>
+</head>
+<body data-game="00107" data-nav="matrix">
+
+<div class="header">
+  <h1>WRONG TETRIS</h1>
+  <div class="warning">GAME CANNOT BE WON</div>
+</div>
+
+<div class="game-wrap">
+  <canvas id="board" width="200" height="400"></canvas>
+  <div class="sidebar">
+    <div class="side-box">
+      SCORE<div class="val" id="score">0</div>
+    </div>
+    <div class="side-box">
+      LINES<div class="val" id="lines">0</div>
+    </div>
+    <div class="side-box">
+      NEXT
+      <canvas class="next-canvas" id="next" width="80" height="80"></canvas>
+    </div>
+    <div class="side-box keys">
+      ← → MOVE<br>
+      ↑ ROTATE<br>
+      ↓ FASTER<br>
+      SPC DROP
+    </div>
+  </div>
+</div>
+
+<div id="msg"></div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const COLS = 10, ROWS = 20;
+const CELL = 20;
+const board = document.getElementById('board');
+const bctx = board.getContext('2d');
+const nextC = document.getElementById('next');
+const nctx = nextC.getContext('2d');
+
+// Wrong pieces: pentominoes and irregular hexominoes designed to leave gaps
+// Format: array of [row, col] offsets
+const PIECES = [
+  // C-shape: creates mandatory gap in the middle
+  { cells: [[0,0],[0,2],[1,0],[1,1],[1,2]], color: '#e94560' },
+  // Plus sign: can't line up with anything
+  { cells: [[0,1],[1,0],[1,1],[1,2],[2,1]], color: '#d06060' },
+  // F-pentomino
+  { cells: [[0,1],[0,2],[1,0],[1,1],[2,1]], color: '#c05050' },
+  // S with extra
+  { cells: [[0,1],[0,2],[1,0],[1,1],[2,0]], color: '#b04040' },
+  // T-hex: T piece + center bump
+  { cells: [[0,0],[0,1],[0,2],[1,1],[2,1]], color: '#a03030' },
+  // Zigzag 5
+  { cells: [[0,0],[1,0],[1,1],[2,1],[2,2]], color: '#903030' },
+  // Backwards C
+  { cells: [[0,0],[0,1],[1,1],[2,0],[2,1]], color: '#802020' },
+  // Corner L with extra
+  { cells: [[0,0],[1,0],[2,0],[2,1],[1,1]], color: '#c04060' },
+];
+
+let grid = Array.from({length: ROWS}, () => new Array(COLS).fill(0));
+let cur = null, curX = 0, curY = 0;
+let next = null;
+let score = 0, lineCount = 0;
+let gameOver = false;
+let dropInterval = 600;
+let lastDrop = 0;
+let animId;
+
+function newPiece(type) {
+  const p = type || PIECES[Math.floor(Math.random() * PIECES.length)];
+  // rotate randomly 0-3 times
+  let cells = p.cells.map(c => [...c]);
+  const rot = Math.floor(Math.random() * 4);
+  for (let r = 0; r < rot; r++) cells = rotateCells(cells);
+  return { cells, color: p.color };
+}
+
+function rotateCells(cells) {
+  // 90° clockwise
+  const maxR = Math.max(...cells.map(c => c[0]));
+  return cells.map(([r, c]) => [c, maxR - r]);
+}
+
+function normalizeCells(cells) {
+  const minR = Math.min(...cells.map(c => c[0]));
+  const minC = Math.min(...cells.map(c => c[1]));
+  return cells.map(([r,c]) => [r - minR, c - minC]);
+}
+
+function spawnPiece() {
+  cur = next || newPiece();
+  next = newPiece();
+  const cs = normalizeCells(cur.cells);
+  cur.cells = cs;
+  const maxC = Math.max(...cs.map(c => c[1]));
+  curX = Math.floor((COLS - maxC - 1) / 2);
+  curY = 0;
+  if (!canPlace(cur.cells, curX, curY)) {
+    gameOver = true;
+    document.getElementById('msg').textContent = 'GAME OVER — RESTARTING…';
+    setTimeout(reset, 2000);
+  }
+  drawNext();
+}
+
+function canPlace(cells, ox, oy) {
+  for (const [r, c] of cells) {
+    const nr = oy + r, nc = ox + c;
+    if (nr >= ROWS || nc < 0 || nc >= COLS) return false;
+    if (nr >= 0 && grid[nr][nc]) return false;
+  }
+  return true;
+}
+
+function lockPiece() {
+  for (const [r, c] of cur.cells) {
+    const nr = curY + r, nc = curX + c;
+    if (nr >= 0) grid[nr][nc] = cur.color;
+  }
+  clearLines();
+  spawnPiece();
+}
+
+function clearLines() {
+  let cleared = 0;
+  for (let r = ROWS - 1; r >= 0; r--) {
+    if (grid[r].every(c => c)) {
+      grid.splice(r, 1);
+      grid.unshift(new Array(COLS).fill(0));
+      cleared++;
+      r++; // recheck same row
+    }
+  }
+  if (cleared > 0) {
+    lineCount += cleared;
+    score += cleared * 100 * cleared;
+    document.getElementById('score').textContent = score;
+    document.getElementById('lines').textContent = lineCount;
+    dropInterval = Math.max(100, 600 - Math.floor(lineCount / 5) * 30);
+  }
+}
+
+function moveDown() {
+  if (canPlace(cur.cells, curX, curY + 1)) {
+    curY++;
+  } else {
+    lockPiece();
+  }
+}
+
+function draw() {
+  bctx.fillStyle = '#050508';
+  bctx.fillRect(0, 0, board.width, board.height);
+
+  // Grid lines
+  bctx.strokeStyle = '#0d0d18';
+  bctx.lineWidth = 0.5;
+  for (let r = 0; r <= ROWS; r++) {
+    bctx.beginPath();
+    bctx.moveTo(0, r * CELL);
+    bctx.lineTo(COLS * CELL, r * CELL);
+    bctx.stroke();
+  }
+  for (let c = 0; c <= COLS; c++) {
+    bctx.beginPath();
+    bctx.moveTo(c * CELL, 0);
+    bctx.lineTo(c * CELL, ROWS * CELL);
+    bctx.stroke();
+  }
+
+  // Locked cells
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (grid[r][c]) {
+        bctx.fillStyle = grid[r][c];
+        bctx.fillRect(c * CELL + 1, r * CELL + 1, CELL - 2, CELL - 2);
+      }
+    }
+  }
+
+  // Current piece
+  if (cur && !gameOver) {
+    // Ghost
+    let ghostY = curY;
+    while (canPlace(cur.cells, curX, ghostY + 1)) ghostY++;
+    bctx.fillStyle = 'rgba(232,69,96,0.12)';
+    for (const [r, c] of cur.cells) {
+      const nr = ghostY + r, nc = curX + c;
+      if (nr >= 0) bctx.fillRect(nc * CELL + 1, nr * CELL + 1, CELL - 2, CELL - 2);
+    }
+    // Real piece
+    bctx.fillStyle = cur.color;
+    for (const [r, c] of cur.cells) {
+      const nr = curY + r, nc = curX + c;
+      if (nr >= 0) bctx.fillRect(nc * CELL + 1, nr * CELL + 1, CELL - 2, CELL - 2);
+    }
+  }
+}
+
+function drawNext() {
+  nctx.fillStyle = '#070710';
+  nctx.fillRect(0, 0, 80, 80);
+  if (!next) return;
+  const cs = normalizeCells(next.cells);
+  const maxR = Math.max(...cs.map(c => c[0]));
+  const maxC = Math.max(...cs.map(c => c[1]));
+  const s = Math.min(14, Math.floor(70 / Math.max(maxR+1, maxC+1)));
+  const ox = Math.floor((80 - (maxC + 1) * s) / 2);
+  const oy = Math.floor((80 - (maxR + 1) * s) / 2);
+  nctx.fillStyle = next.color;
+  for (const [r, c] of cs) {
+    nctx.fillRect(ox + c * s + 1, oy + r * s + 1, s - 2, s - 2);
+  }
+}
+
+function gameLoop(ts) {
+  animId = requestAnimationFrame(gameLoop);
+  if (gameOver) return;
+  if (ts - lastDrop > dropInterval) {
+    moveDown();
+    lastDrop = ts;
+  }
+  draw();
+}
+
+function reset() {
+  grid = Array.from({length: ROWS}, () => new Array(COLS).fill(0));
+  score = 0; lineCount = 0; gameOver = false; dropInterval = 600;
+  document.getElementById('score').textContent = 0;
+  document.getElementById('lines').textContent = 0;
+  document.getElementById('msg').textContent = '';
+  next = null;
+  spawnPiece();
+}
+
+document.addEventListener('keydown', e => {
+  if (gameOver) return;
+  if (e.key === 'ArrowLeft')  { if (canPlace(cur.cells, curX-1, curY)) { curX--; draw(); } e.preventDefault(); }
+  if (e.key === 'ArrowRight') { if (canPlace(cur.cells, curX+1, curY)) { curX++; draw(); } e.preventDefault(); }
+  if (e.key === 'ArrowDown')  { moveDown(); draw(); e.preventDefault(); }
+  if (e.key === 'ArrowUp') {
+    const rot = normalizeCells(rotateCells(cur.cells));
+    // Wall kick attempts
+    for (const kick of [0, -1, 1, -2, 2]) {
+      if (canPlace(rot, curX + kick, curY)) {
+        cur.cells = rot; curX += kick; draw(); break;
+      }
+    }
+    e.preventDefault();
+  }
+  if (e.key === ' ') {
+    while (canPlace(cur.cells, curX, curY + 1)) curY++;
+    lockPiece(); draw(); e.preventDefault();
+  }
+});
+
+reset();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>

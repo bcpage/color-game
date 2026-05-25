@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00106 — GAME OVER</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508;
+    color: #c8c8d0;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 40px 20px;
+  }
+  .terminal {
+    width: 100%;
+    max-width: 500px;
+    border: 1px solid #1a1a2a;
+    background: #070710;
+    padding: 28px;
+    font-size: 12px;
+    line-height: 2;
+  }
+  .term-line { color: #334; }
+  .term-line .prompt { color: #555; }
+  .term-line .cmd { color: #778; }
+  .term-line .output { color: #e94560; }
+  .term-line .ok { color: #4a8a4a; }
+  .term-line .warn { color: #8a6a3a; }
+  .blink { animation: bc 0.8s step-end infinite; }
+  @keyframes bc { 0%,100%{opacity:1;} 50%{opacity:0;} }
+  #countdown-line { color: #334; }
+  #countdown-line span { color: #556; }
+  .header-line {
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: #222;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+</style>
+</head>
+<body data-game="00106" data-nav="matrix">
+
+<div class="header-line">ROOM 00106 — NULL FACILITY TERMINAL</div>
+
+<div class="terminal" id="term">
+  <div class="term-line"><span class="prompt">NULL&gt; </span><span class="cmd">session.status()</span></div>
+  <div class="term-line"><span class="output">TERMINATED</span></div>
+  <div class="term-line">&nbsp;</div>
+  <div class="term-line"><span class="prompt">NULL&gt; </span><span class="cmd">user.clearance()</span></div>
+  <div class="term-line"><span class="warn">REVOKED — CAUSE: GAME_OVER</span></div>
+  <div class="term-line">&nbsp;</div>
+  <div class="term-line"><span class="prompt">NULL&gt; </span><span class="cmd">session.resume()</span></div>
+  <div class="term-line"><span class="output">ERROR: SESSION_LOCK_ACTIVE</span></div>
+  <div class="term-line">&nbsp;</div>
+  <div class="term-line"><span class="prompt">NULL&gt; </span><span class="cmd">lock.info()</span></div>
+  <div class="term-line" id="countdown-line">LOADING<span class="blink">█</span></div>
+  <div class="term-line">&nbsp;</div>
+  <div class="term-line"><span class="prompt">NULL&gt; </span><span class="blink">█</span></div>
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const roomId = '00106';
+const countdownLine = document.getElementById('countdown-line');
+
+async function init() {
+  const res = await fetch(`/api/gameover/${roomId}`, { method: 'POST' });
+  const data = await res.json();
+  tick(data.until);
+}
+
+function tick(until) {
+  const remaining = Math.max(0, until - Date.now());
+  if (remaining === 0) {
+    countdownLine.innerHTML = '<span style="color:#4a8a4a">LOCK_DURATION: 0 — ACCESS PERMITTED</span>';
+    return;
+  }
+  const h = Math.floor(remaining / 3600000);
+  const m = Math.floor((remaining % 3600000) / 60000);
+  const s = Math.floor((remaining % 60000) / 1000);
+  countdownLine.innerHTML = `LOCK_REMAINING: <span>${String(h).padStart(2,'0')}h ${String(m).padStart(2,'0')}m ${String(s).padStart(2,'0')}s</span>`;
+  setTimeout(() => tick(until), 1000);
+}
+
+init().catch(() => { countdownLine.textContent = 'STATUS: UNKNOWN'; });
+</script>
+</body>
+</html>

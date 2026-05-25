@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00102 — Binary Control Panel</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508;
+    color: #c8c8d0;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+    padding: 40px 20px;
+  }
+  h1 {
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #555;
+  }
+  .panel {
+    background: #0e0e14;
+    border: 1px solid #1e1e2e;
+    border-radius: 8px;
+    padding: 40px 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 36px;
+  }
+  .panel-label {
+    font-size: 10px;
+    letter-spacing: 6px;
+    color: #444;
+    text-transform: uppercase;
+  }
+  .switches {
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+  }
+  .switch-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .bit-label {
+    font-size: 10px;
+    color: #444;
+    letter-spacing: 1px;
+  }
+  .switch {
+    width: 34px;
+    height: 64px;
+    background: #1a1a24;
+    border: 1px solid #2a2a3a;
+    border-radius: 17px;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+  .switch:hover { border-color: #444; }
+  .switch.on { border-color: #5a8a5a; }
+  .switch::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-radius: 12px;
+    background: #2c2c3c;
+    left: 4px;
+    top: 4px;
+    transition: top 0.12s, background 0.12s;
+  }
+  .switch.on::after {
+    top: 36px;
+    background: #5aaa5a;
+    box-shadow: 0 0 8px #3a8a3a;
+  }
+  .switch-separator {
+    width: 1px;
+    height: 64px;
+    background: #1e1e2e;
+    margin: 0 4px;
+    align-self: center;
+  }
+  .readout {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 8px 20px;
+    font-size: 13px;
+  }
+  .readout-label { color: #445; text-align: right; }
+  .readout-value { color: #aac; font-size: 15px; }
+  #readout-ascii {
+    color: #e94560;
+    font-size: 22px;
+    font-weight: bold;
+  }
+  .status {
+    font-size: 10px;
+    color: #333;
+    letter-spacing: 2px;
+  }
+  .status.connected { color: #3a6a3a; }
+</style>
+</head>
+<body data-game="00102" data-nav="matrix">
+
+<h1>Binary Control Panel</h1>
+
+<div class="panel">
+  <div class="panel-label">8-bit register — BIT 7 → BIT 0</div>
+
+  <div class="switches" id="switches">
+    <!-- bits[0]=bit7 MSB … bits[7]=bit0 LSB -->
+  </div>
+
+  <div class="readout">
+    <span class="readout-label">BIN</span>
+    <span class="readout-value" id="r-bin">00000000</span>
+    <span class="readout-label">DEC</span>
+    <span class="readout-value" id="r-dec">0</span>
+    <span class="readout-label">HEX</span>
+    <span class="readout-value" id="r-hex">0x00</span>
+    <span class="readout-label">ASCII</span>
+    <span class="readout-value" id="readout-ascii">—</span>
+  </div>
+</div>
+
+<div class="status" id="status">CONNECTING…</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+  // Build switch UI — bits[0] = bit7 (MSB), bits[7] = bit0 (LSB)
+  const switchContainer = document.getElementById('switches');
+  const switchEls = [];
+
+  for (let i = 0; i < 8; i++) {
+    if (i === 4) {
+      const sep = document.createElement('div');
+      sep.className = 'switch-separator';
+      switchContainer.appendChild(sep);
+    }
+    const group = document.createElement('div');
+    group.className = 'switch-group';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'bit-label';
+    lbl.textContent = `B${7 - i}`;
+
+    const sw = document.createElement('div');
+    sw.className = 'switch';
+    sw.dataset.bit = i;
+    sw.addEventListener('click', () => flipBit(i));
+
+    group.appendChild(lbl);
+    group.appendChild(sw);
+    switchContainer.appendChild(group);
+    switchEls.push(sw);
+  }
+
+  let bits = [0,0,0,0,0,0,0,0];
+
+  function renderBits(b) {
+    bits = b;
+    let val = 0;
+    b.forEach((v, i) => {
+      switchEls[i].classList.toggle('on', v === 1);
+      if (v) val |= (1 << (7 - i));
+    });
+    document.getElementById('r-bin').textContent = val.toString(2).padStart(8, '0');
+    document.getElementById('r-dec').textContent = val;
+    document.getElementById('r-hex').textContent = '0x' + val.toString(16).toUpperCase().padStart(2, '0');
+    const ch = (val >= 32 && val < 127) ? String.fromCharCode(val) : (val === 0 ? 'NUL' : val < 32 ? 'CTRL' : 'DEL');
+    document.getElementById('readout-ascii').textContent = ch;
+  }
+
+  // WebSocket
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}`);
+  const statusEl = document.getElementById('status');
+
+  ws.addEventListener('open', () => {
+    statusEl.textContent = 'SYNC ACTIVE';
+    statusEl.className = 'status connected';
+  });
+
+  ws.addEventListener('close', () => {
+    statusEl.textContent = 'DISCONNECTED';
+    statusEl.className = 'status';
+  });
+
+  ws.addEventListener('message', e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.game === 'ascii' && msg.type === 'state') {
+        renderBits(msg.bits);
+      }
+    } catch(_) {}
+  });
+
+  function flipBit(i) {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ game: 'ascii', type: 'flip', bit: i }));
+  }
+
+  // Keyboard: 0-7 flip the corresponding bit (7=MSB, 0=LSB)
+  document.addEventListener('keydown', e => {
+    const n = parseInt(e.key);
+    if (!isNaN(n) && n >= 0 && n <= 7) {
+      flipBit(7 - n); // key "7" = bit7 = index 0
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00103 — Localization Terminal</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508;
+    color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    gap: 30px;
+  }
+  .header {
+    text-align: center;
+  }
+  .header h1 {
+    font-size: 10px;
+    letter-spacing: 6px;
+    color: #333;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .header .title {
+    font-size: 14px;
+    letter-spacing: 4px;
+    color: #e94560;
+    text-transform: uppercase;
+  }
+  #consent-box {
+    border: 1px solid #1e1e2e;
+    padding: 30px;
+    max-width: 480px;
+    text-align: center;
+    background: #0a0a12;
+  }
+  #consent-box p {
+    font-size: 12px;
+    line-height: 1.9;
+    color: #556;
+    margin-bottom: 24px;
+  }
+  #consent-box p em {
+    color: #7a8a9a;
+    font-style: normal;
+  }
+  .btn {
+    background: none;
+    border: 1px solid #2a2a4a;
+    color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    padding: 10px 30px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .btn:hover { border-color: #e94560; color: #e94560; }
+  #result {
+    display: none;
+    max-width: 500px;
+    width: 100%;
+  }
+  .scan-line {
+    font-size: 11px;
+    line-height: 2.4;
+    color: #334;
+    border-bottom: 1px solid #111;
+    padding: 4px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .scan-line .key { color: #445; min-width: 120px; }
+  .scan-line .val { color: #9abaaa; text-align: right; flex: 1; }
+  .scan-line .val.highlight { color: #e94560; }
+  .coords-box {
+    margin-top: 24px;
+    text-align: center;
+    padding: 20px;
+    border: 1px solid #1a1a2a;
+    background: #080810;
+  }
+  .coords-display {
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: #6a8a7a;
+    margin-bottom: 8px;
+  }
+  .coords-note {
+    font-size: 10px;
+    color: #333;
+    letter-spacing: 2px;
+  }
+  .compass {
+    display: inline-block;
+    width: 80px;
+    height: 80px;
+    position: relative;
+    margin: 20px auto;
+  }
+  .compass-ring {
+    width: 80px;
+    height: 80px;
+    border: 1px solid #1e2e2e;
+    border-radius: 50%;
+    position: relative;
+  }
+  .compass-ring::before, .compass-ring::after {
+    content: '';
+    position: absolute;
+    background: #1e2e2e;
+  }
+  .compass-ring::before { width: 1px; height: 80px; left: 39px; top: 0; }
+  .compass-ring::after  { width: 80px; height: 1px; top: 39px; left: 0; }
+  .compass-needle {
+    position: absolute;
+    width: 2px;
+    height: 30px;
+    background: #e94560;
+    left: 39px;
+    top: 10px;
+    transform-origin: bottom center;
+    transition: transform 1s ease;
+  }
+  .compass-n {
+    position: absolute;
+    top: -18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    color: #445;
+    letter-spacing: 1px;
+  }
+  #error-msg {
+    display: none;
+    color: #e94560;
+    font-size: 11px;
+    text-align: center;
+    letter-spacing: 2px;
+  }
+  #scanning {
+    display: none;
+    font-size: 11px;
+    color: #445;
+    letter-spacing: 4px;
+    text-align: center;
+  }
+</style>
+</head>
+<body data-game="00103" data-nav="matrix">
+
+<div class="header">
+  <h1>Room 00103</h1>
+  <div class="title">Localization Terminal</div>
+</div>
+
+<div id="consent-box">
+  <p>
+    This terminal will perform a <em>geographic index scan</em> on the
+    current connection node. Approximate location will be derived from
+    network routing data.<br><br>
+    Accuracy is low. Precision is not the point.<br>
+    The point is that it is possible.
+  </p>
+  <button class="btn" onclick="startScan()">AUTHORIZE SCAN</button>
+</div>
+
+<div id="scanning">SCANNING…</div>
+<div id="error-msg">SCAN FAILED — ROUTING DATA UNAVAILABLE</div>
+
+<div id="result">
+  <div id="scan-lines"></div>
+
+  <div class="coords-box">
+    <div class="compass">
+      <div class="compass-ring">
+        <div class="compass-needle" id="needle"></div>
+        <div class="compass-n">N</div>
+      </div>
+    </div>
+    <div class="coords-display" id="coords">—</div>
+    <div class="coords-note">APPROXIMATE COORDINATES — NOT FOR NAVIGATION</div>
+  </div>
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+function startScan() {
+  document.getElementById('consent-box').style.display = 'none';
+  document.getElementById('scanning').style.display = 'block';
+
+  fetch('https://ipapi.co/json/')
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('scanning').style.display = 'none';
+      showResult(data);
+    })
+    .catch(() => {
+      document.getElementById('scanning').style.display = 'none';
+      document.getElementById('error-msg').style.display = 'block';
+    });
+}
+
+function showResult(d) {
+  const fields = [
+    { key: 'NODE ADDRESS',    val: d.ip || '—',                  hi: true },
+    { key: 'NETWORK ORG',     val: d.org || d.asn || '—' },
+    { key: 'COUNTRY',         val: (d.country_name || '—') + (d.country_code ? ` (${d.country_code})` : '') },
+    { key: 'REGION',          val: d.region || '—' },
+    { key: 'CITY',            val: d.city || '—' },
+    { key: 'POSTAL CODE',     val: d.postal || '—' },
+    { key: 'TIMEZONE',        val: d.timezone || '—' },
+    { key: 'UTC OFFSET',      val: d.utc_offset ? `UTC${d.utc_offset}` : '—' },
+    { key: 'CURRENCY',        val: d.currency || '—' },
+    { key: 'LANGUAGES',       val: d.languages || '—' },
+  ];
+
+  const container = document.getElementById('scan-lines');
+  container.innerHTML = '';
+  fields.forEach(f => {
+    const div = document.createElement('div');
+    div.className = 'scan-line';
+    div.innerHTML = `<span class="key">${f.key}</span><span class="val${f.hi ? ' highlight' : ''}">${f.val}</span>`;
+    container.appendChild(div);
+  });
+
+  const lat = parseFloat(d.latitude);
+  const lon = parseFloat(d.longitude);
+  if (!isNaN(lat) && !isNaN(lon)) {
+    const latStr = Math.abs(lat).toFixed(4) + '° ' + (lat >= 0 ? 'N' : 'S');
+    const lonStr = Math.abs(lon).toFixed(4) + '° ' + (lon >= 0 ? 'E' : 'W');
+    document.getElementById('coords').textContent = `${latStr}  ${lonStr}`;
+    // Needle points toward calculated bearing from equator
+    const angle = ((lon + 180) / 360) * 360;
+    document.getElementById('needle').style.transform = `rotate(${angle}deg)`;
+  }
+
+  document.getElementById('result').style.display = 'block';
+}
+</script>
+</body>
+</html>

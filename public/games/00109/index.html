@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00109 — Physics Engine</title>
+<link rel="icon" href="data:,">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508;
+    color: #c8c8d0;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 20px;
+  }
+  .header { text-align: center; }
+  .header h1 { font-size: 11px; letter-spacing: 4px; color: #555; }
+  .header .sub { font-size: 10px; color: #333; letter-spacing: 2px; margin-top: 4px; }
+  #canvas-wrap {
+    position: relative;
+    border: 1px solid #1a1a2a;
+    cursor: crosshair;
+  }
+  canvas { display: block; }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    max-width: 520px;
+  }
+  .btn {
+    background: none;
+    border: 1px solid #1e1e2e;
+    color: #556;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    letter-spacing: 2px;
+    padding: 8px 14px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .btn:hover { border-color: #445; color: #8a9aaa; }
+  .btn.active { border-color: #e94560; color: #e94560; }
+  .info { font-size: 10px; color: #222; letter-spacing: 2px; text-align: center; }
+</style>
+</head>
+<body data-game="00109" data-nav="matrix">
+
+<div class="header">
+  <h1>Physics Engine</h1>
+  <div class="sub">Click to spawn — Matter.js sandbox</div>
+</div>
+
+<div id="canvas-wrap">
+  <canvas id="c"></canvas>
+</div>
+
+<div class="controls">
+  <button class="btn active" id="btn-box"    onclick="setMode('box')">BOX</button>
+  <button class="btn"        id="btn-ball"   onclick="setMode('ball')">BALL</button>
+  <button class="btn"        id="btn-rag"    onclick="setMode('ragdoll')">RAGDOLL</button>
+  <button class="btn"        id="btn-bomb"   onclick="setMode('bomb')">BOMB</button>
+  <button class="btn"        id="btn-grav"   onclick="cycleGravity()">GRAVITY ↓</button>
+  <button class="btn"        id="btn-clear"  onclick="clearBodies()">CLEAR</button>
+</div>
+
+<div class="info" id="info">BODIES: 0 · CLICK TO SPAWN</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const W = Math.min(520, window.innerWidth - 40);
+const H = Math.min(460, window.innerHeight - 280);
+const canvas = document.getElementById('c');
+canvas.width = W;
+canvas.height = H;
+
+const { Engine, Render, Runner, Bodies, Body, Composite, Constraint, Events, Mouse, MouseConstraint } = Matter;
+
+const engine = Engine.create({ gravity: { y: 1 } });
+const world = engine.world;
+
+// Render
+const render = Render.create({
+  canvas,
+  engine,
+  options: {
+    width: W, height: H,
+    background: '#050508',
+    wireframes: false,
+    showVelocity: false,
+  }
+});
+Render.run(render);
+Runner.run(Runner.create(), engine);
+
+// Walls
+const wallOpts = { isStatic: true, render: { fillStyle: '#0e0e1e' } };
+const floor  = Bodies.rectangle(W/2, H+25, W+4, 50, wallOpts);
+const left   = Bodies.rectangle(-25,  H/2, 50, H+4, wallOpts);
+const right  = Bodies.rectangle(W+25, H/2, 50, H+4, wallOpts);
+const ceiling= Bodies.rectangle(W/2, -25,  W+4, 50, wallOpts);
+Composite.add(world, [floor, left, right, ceiling]);
+
+// Mouse constraint (drag objects)
+const mouse = Mouse.create(canvas);
+const mc = MouseConstraint.create(engine, {
+  mouse,
+  constraint: { stiffness: 0.2, render: { visible: false } }
+});
+Composite.add(world, mc);
+render.mouse = mouse;
+
+// Gravity states
+const gravStates = [
+  { label: 'GRAVITY ↓', y: 1 },
+  { label: 'GRAVITY ↑', y: -1 },
+  { label: 'ZERO-G',    y: 0 },
+  { label: 'CHAOS',     y: 0.1 },
+];
+let gravIdx = 0;
+
+function cycleGravity() {
+  gravIdx = (gravIdx + 1) % gravStates.length;
+  const g = gravStates[gravIdx];
+  engine.gravity.y = g.y;
+  if (gravIdx === 3) engine.gravity.x = 0.05; else engine.gravity.x = 0;
+  document.getElementById('btn-grav').textContent = g.label;
+}
+
+// Spawn modes
+let spawnMode = 'box';
+function setMode(m) {
+  spawnMode = m;
+  document.querySelectorAll('.controls .btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('btn-' + m)?.classList.add('active');
+}
+
+// Colors palette
+const PALETTE = ['#e94560','#c03040','#a02030','#803040','#4a4a6a','#3a5a7a','#2a4a5a'];
+let colorIdx = 0;
+function nextColor() { return PALETTE[colorIdx++ % PALETTE.length]; }
+
+// Spawn functions
+function spawnBox(x, y) {
+  const s = 20 + Math.random() * 30;
+  const b = Bodies.rectangle(x, y, s, s, {
+    restitution: 0.4,
+    friction: 0.3,
+    render: { fillStyle: nextColor() }
+  });
+  Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.2);
+  Composite.add(world, b);
+}
+
+function spawnBall(x, y) {
+  const r = 8 + Math.random() * 16;
+  const b = Bodies.circle(x, y, r, {
+    restitution: 0.7,
+    friction: 0.1,
+    render: { fillStyle: nextColor() }
+  });
+  Composite.add(world, b);
+}
+
+function spawnRagdoll(x, y) {
+  const parts = [];
+  const n = 6;
+  const color = nextColor();
+  for (let i = 0; i < n; i++) {
+    const seg = Bodies.circle(x, y + i * 18, 8, {
+      restitution: 0.3, friction: 0.5,
+      render: { fillStyle: color }
+    });
+    parts.push(seg);
+    Composite.add(world, seg);
+    if (i > 0) {
+      const link = Constraint.create({
+        bodyA: parts[i-1], bodyB: parts[i],
+        length: 16, stiffness: 0.8,
+        render: { strokeStyle: color, lineWidth: 2 }
+      });
+      Composite.add(world, link);
+    }
+  }
+  // Arms at segment 2
+  const armColor = color;
+  for (const side of [-1, 1]) {
+    const arm = Bodies.circle(x + side * 30, y + 28, 7, {
+      restitution: 0.3, friction: 0.5,
+      render: { fillStyle: armColor }
+    });
+    Composite.add(world, arm);
+    Composite.add(world, Constraint.create({
+      bodyA: parts[2], bodyB: arm,
+      length: 28, stiffness: 0.6,
+      render: { strokeStyle: armColor, lineWidth: 2 }
+    }));
+  }
+}
+
+function spawnBomb(x, y) {
+  // Spawn a heavy sphere that explodes existing nearby bodies
+  const bomb = Bodies.circle(x, y, 12, {
+    restitution: 0.2, mass: 50,
+    render: { fillStyle: '#ffffff' }
+  });
+  Composite.add(world, bomb);
+  setTimeout(() => {
+    const pos = bomb.position;
+    const bodies = Composite.allBodies(world);
+    for (const b of bodies) {
+      if (b.isStatic) continue;
+      if (b === bomb) continue;
+      const dx = b.position.x - pos.x;
+      const dy = b.position.y - pos.y;
+      const d = Math.sqrt(dx*dx + dy*dy) || 1;
+      if (d < 150) {
+        const f = (150 - d) / 150 * 0.08;
+        Body.applyForce(b, b.position, { x: dx/d*f, y: dy/d*f });
+      }
+    }
+    Composite.remove(world, bomb);
+  }, 600);
+}
+
+// Click to spawn
+canvas.addEventListener('click', e => {
+  if (mc.body) return; // dragging
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  switch (spawnMode) {
+    case 'box':     spawnBox(x, y);     break;
+    case 'ball':    spawnBall(x, y);    break;
+    case 'ragdoll': spawnRagdoll(x, y); break;
+    case 'bomb':    spawnBomb(x, y);    break;
+  }
+});
+
+function clearBodies() {
+  const bodies = Composite.allBodies(world).filter(b => !b.isStatic);
+  const constraints = Composite.allConstraints(world);
+  bodies.forEach(b => Composite.remove(world, b));
+  constraints.forEach(c => Composite.remove(world, c));
+  colorIdx = 0;
+}
+
+// Info update
+setInterval(() => {
+  const n = Composite.allBodies(world).filter(b => !b.isStatic).length;
+  document.getElementById('info').textContent = `BODIES: ${n} · CLICK TO SPAWN · MODE: ${spawnMode.toUpperCase()}`;
+  if (n > 80) {
+    // Remove oldest non-static body
+    const oldest = Composite.allBodies(world).find(b => !b.isStatic);
+    if (oldest) Composite.remove(world, oldest);
+  }
+}, 500);
+
+// Spawn a few starter boxes
+setTimeout(() => {
+  for (let i = 0; i < 5; i++) {
+    spawnBox(80 + i * 80, H * 0.3 + Math.random() * 40);
+  }
+}, 200);
+</script>
+</body>
+</html>
