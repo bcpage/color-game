@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00129 — Matrix Fragment B</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #050508; color: #8a9aaa; font-family: 'Courier New', monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 40px 20px; }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #223; }
+  .title { font-size: 11px; letter-spacing: 5px; color: #445; text-transform: uppercase; }
+  .card { width: 100%; max-width: 640px; border: 1px solid #1a1a2a; background: #080810; }
+  .card-header { border-bottom: 1px solid #1a1a2a; padding: 12px 20px; font-size: 10px; letter-spacing: 4px; color: #334; text-transform: uppercase; display: flex; justify-content: space-between; }
+  .card-body { padding: 20px; }
+  pre { font-size: 11px; line-height: 1.6; color: #556; white-space: pre; overflow-x: auto; }
+  pre .room { color: #7a9aaa; }
+  pre .active { color: #9ab4c4; font-weight: bold; }
+  pre .unknown { color: #334; }
+  pre .edge { color: #2a3a3a; }
+  pre .flag { color: #6a8a5a; }
+  .log { margin-top: 4px; border-top: 1px solid #0e0e18; padding-top: 12px; }
+  .log-row { display: flex; gap: 12px; padding: 4px 0; font-size: 11px; border-bottom: 1px solid #0a0a14; }
+  .log-row .lnum { color: #2a3a4a; min-width: 52px; }
+  .log-row .ldesc { color: #556; flex: 1; }
+  .log-row .ltype { color: #334; font-size: 10px; letter-spacing: 1px; text-align: right; }
+  .footnote { font-size: 10px; color: #223; letter-spacing: 1px; padding: 12px 20px; border-top: 1px solid #0e0e18; }
+</style>
+</head>
+<body data-game="00129" data-nav="matrix">
+<div class="room-id">ROOM 00129</div>
+<div class="title">Matrix Fragment — Sector B</div>
+<div class="card">
+  <div class="card-header"><span>FACILITY MAP — SECTOR B (00026–00055)</span><span>FRAGMENT 2 OF 5</span></div>
+  <div class="card-body">
+<pre>
+<span class="edge">  ↑           ↑           ↑           ↑           ↑   </span>
+<span class="edge">  (← sector A)                                        </span>
+
+<span class="edge">┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐</span>
+<span class="edge">│</span><span class="active">00026 </span><span class="edge">│───│</span><span class="active">00027 </span><span class="edge">│───│</span><span class="active">00028 </span><span class="edge">│───│</span><span class="active">00029 </span><span class="edge">│───│</span><span class="active">00030 </span><span class="edge">│</span>
+<span class="edge">└──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘</span>
+<span class="edge">   │           │           │           │           │    </span>
+<span class="edge">┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐</span>
+<span class="edge">│</span><span class="active">00036 </span><span class="edge">│───│</span><span class="active">00037 </span><span class="edge">│───│</span><span class="active">00038 </span><span class="edge">│───│</span><span class="active">00039 </span><span class="edge">│───│</span><span class="active">00040 </span><span class="edge">│</span>
+<span class="edge">└──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘</span>
+<span class="edge">   │           │           │           │           │    </span>
+<span class="edge">┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐</span>
+<span class="edge">│</span><span class="active">00046 </span><span class="edge">│───│</span><span class="active">00047 </span><span class="edge">│───│</span><span class="active">00048 </span><span class="edge">│───│</span><span class="active">00049 </span><span class="edge">│───│</span><span class="active">00050 </span><span class="edge">│</span>
+<span class="edge">└──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘</span>
+<span class="edge">   │           │           │           │           │    </span>
+<span class="edge">┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐</span>
+<span class="edge">│</span><span class="active">00051 </span><span class="edge">│───│</span><span class="active">00052 </span><span class="edge">│───│</span><span class="active">00053 </span><span class="edge">│───│</span><span class="active">00054 </span><span class="edge">│───│</span><span class="active">00055 </span><span class="edge">│</span>
+<span class="edge">└──────┘   └──────┘   └──────┘   └──────┘   └──────┘</span>
+</pre>
+    <div class="log">
+      <div class="log-row"><span class="lnum">00026</span><span class="ldesc">Living system. Requires external input to survive.</span><span class="ltype">BIO</span></div>
+      <div class="log-row"><span class="lnum">00036</span><span class="ldesc">Contested node. Outcome determined by plurality vote.</span><span class="ltype">SOCIAL</span></div>
+      <div class="log-row"><span class="lnum">00037</span><span class="ldesc">Synchronized output. Shared across all sessions.</span><span class="ltype">SYNC</span></div>
+      <div class="log-row"><span class="lnum">00051</span><span class="ldesc">Identity assignment. Terminal. One designation per entity.</span><span class="ltype">ID</span></div>
+      <div class="log-row"><span class="lnum">00052</span><span class="ldesc">Records begin. Status: classification pending.</span><span class="ltype">ARCHIVE</span></div>
+    </div>
+  </div>
+  <div class="footnote">Fragment B of 5. Note: rows 00031–00035 omitted from this printout. Data integrity: 87%.</div>
+</div>
+<script src="/shared/matrix-nav.js"></script>
+</body>
+</html>

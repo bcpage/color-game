@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00132 — Matrix Fragment E</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #050508; color: #8a9aaa; font-family: 'Courier New', monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 40px 20px; }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #223; }
+  .title { font-size: 11px; letter-spacing: 5px; color: #445; text-transform: uppercase; }
+  .card { width: 100%; max-width: 640px; border: 1px solid #1a1a2a; background: #080810; }
+  .card-header { border-bottom: 1px solid #1a1a2a; padding: 12px 20px; font-size: 10px; letter-spacing: 4px; color: #334; text-transform: uppercase; display: flex; justify-content: space-between; }
+  .card-body { padding: 20px; }
+  pre { font-size: 11px; line-height: 1.6; color: #556; white-space: pre; overflow-x: auto; }
+  pre .active { color: #9ab4c4; font-weight: bold; }
+  pre .here { color: #55cc88; font-weight: bold; }
+  pre .edge { color: #2a3a3a; }
+  pre .new { color: #7a7a4a; }
+  .log { margin-top: 4px; border-top: 1px solid #0e0e18; padding-top: 12px; }
+  .log-row { display: flex; gap: 12px; padding: 4px 0; font-size: 11px; border-bottom: 1px solid #0a0a14; }
+  .log-row .lnum { color: #2a3a4a; min-width: 52px; }
+  .log-row .ldesc { color: #556; flex: 1; }
+  .log-row .ltype { color: #334; font-size: 10px; letter-spacing: 1px; text-align: right; }
+  .note { background: #060610; border: 1px solid #1a1a3a; padding: 10px 14px; font-size: 10px; color: #445; letter-spacing: 1px; line-height: 1.7; margin-bottom: 12px; }
+  .footnote { font-size: 10px; color: #223; letter-spacing: 1px; padding: 12px 20px; border-top: 1px solid #0e0e18; }
+</style>
+</head>
+<body data-game="00132" data-nav="matrix">
+<div class="room-id">ROOM 00132</div>
+<div class="title">Matrix Fragment — Sector E</div>
+<div class="card">
+  <div class="card-header"><span>FACILITY MAP — SECTOR E (00111–00133)</span><span>FRAGMENT 5 OF 5</span></div>
+  <div class="card-body">
+    <div class="note">You are reading this fragment from within it. Node 00132 is the document containing this document. Compare with fragments A–D to locate your position in the full topology.</div>
+<pre>
+<span class="edge">  ↑           ↑           ↑           ↑           ↑   </span>
+
+<span class="edge">┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐</span>
+<span class="edge">│</span><span class="active">00111 </span><span class="edge">│───│</span><span class="active">00112 </span><span class="edge">│───│</span><span class="active">00113 </span><span class="edge">│───│</span><span class="active">00114 </span><span class="edge">│───│</span><span class="active">00115 </span><span class="edge">│</span>
+<span class="edge">└──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘</span>
+<span class="edge">   │           │           │           │           │    </span>
+<span class="edge">┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐</span>
+<span class="edge">│</span><span class="active">00116 </span><span class="edge">│───│</span><span class="active">00117 </span><span class="edge">│───│</span><span class="active">00118 </span><span class="edge">│───│</span><span class="active">00119 </span><span class="edge">│───│</span><span class="active">00120 </span><span class="edge">│</span>
+<span class="edge">└──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘</span>
+<span class="edge">   │           │           │           │           │    </span>
+<span class="edge">┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐</span>
+<span class="edge">│</span><span class="active">00121 </span><span class="edge">│───│</span><span class="active">00122 </span><span class="edge">│───│</span><span class="active">00123 </span><span class="edge">│───│</span><span class="active">00124 </span><span class="edge">│───│</span><span class="active">00125 </span><span class="edge">│</span>
+<span class="edge">└──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘</span>
+<span class="edge">   │           │           │           │           │    </span>
+<span class="edge">┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐</span>
+<span class="edge">│</span><span class="active">00126 </span><span class="edge">│───│</span><span class="active">00127 </span><span class="edge">│───│</span><span class="active">00128 </span><span class="edge">│───│</span><span class="active">00129 </span><span class="edge">│───│</span><span class="active">00130 </span><span class="edge">│</span>
+<span class="edge">└──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘</span>
+<span class="edge">   │           │           │           │           │    </span>
+<span class="edge">┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐</span>
+<span class="edge">│</span><span class="active">00131 </span><span class="edge">│───│</span><span class="here">00132 </span><span class="edge">│───│</span><span class="active">00133 </span><span class="edge">│   │</span><span class="new">??????</span><span class="edge">│   │</span><span class="new">??????</span><span class="edge">│</span>
+<span class="edge">└──────┘   └──────┘   └──────┘   └──────┘   └──────┘</span>
+
+<span class="edge">                           ↓                          </span>
+<span class="edge">               [topology continues]                   </span>
+</pre>
+    <div class="log">
+      <div class="log-row"><span class="lnum">00116</span><span class="ldesc">Calendar node. Temporal reference. Marks facility time.</span><span class="ltype">TEMPORAL</span></div>
+      <div class="log-row"><span class="lnum">00118–21</span><span class="ldesc">Paired verification rooms. One correct. One subtly wrong. Undifferentiated.</span><span class="ltype">VERIFY</span></div>
+      <div class="log-row"><span class="lnum">00124</span><span class="ldesc">One game. Permanent outcome. Terminal once concluded.</span><span class="ltype">TERMINAL</span></div>
+      <div class="log-row"><span class="lnum">00132</span><span class="ldesc">This document. You are here. The map contains itself.</span><span class="ltype">META</span></div>
+      <div class="log-row"><span class="lnum">00134+</span><span class="ldesc">Sector E boundary. What lies beyond is not yet recorded.</span><span class="ltype">UNKNOWN</span></div>
+    </div>
+  </div>
+  <div class="footnote">Fragment E of 5 — final fragment. Topology extends beyond recorded boundary. This printout ends here. Data integrity: 100%.</div>
+</div>
+<script src="/shared/matrix-nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00130 — Matrix Fragment C</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #050508; color: #8a9aaa; font-family: 'Courier New', monospace; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; padding: 40px 20px; }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #223; }
+  .title { font-size: 11px; letter-spacing: 5px; color: #445; text-transform: uppercase; }
+  .card { width: 100%; max-width: 640px; border: 1px solid #1a1a2a; background: #080810; }
+  .card-header { border-bottom: 1px solid #1a1a2a; padding: 12px 20px; font-size: 10px; letter-spacing: 4px; color: #334; text-transform: uppercase; display: flex; justify-content: space-between; }
+  .card-body { padding: 20px; }
+  pre { font-size: 11px; line-height: 1.6; color: #556; white-space: pre; overflow-x: auto; }
+  pre .active { color: #9ab4c4; font-weight: bold; }
+  pre .corrupt { color: #4a2a2a; }
+  pre .edge { color: #2a3a3a; }
+  pre .warn { color: #6a5a2a; }
+  .log { margin-top: 4px; border-top: 1px solid #0e0e18; padding-top: 12px; }
+  .log-row { display: flex; gap: 12px; padding: 4px 0; font-size: 11px; border-bottom: 1px solid #0a0a14; }
+  .log-row .lnum { color: #2a3a4a; min-width: 52px; }
+  .log-row .ldesc { color: #556; flex: 1; }
+  .log-row .ltype { color: #334; font-size: 10px; letter-spacing: 1px; text-align: right; }
+  .alert { background: #0c0808; border: 1px solid #3a1a1a; padding: 8px 12px; font-size: 10px; color: #6a3a3a; letter-spacing: 2px; margin-bottom: 12px; }
+  .footnote { font-size: 10px; color: #223; letter-spacing: 1px; padding: 12px 20px; border-top: 1px solid #0e0e18; }
+</style>
+</head>
+<body data-game="00130" data-nav="matrix">
+<div class="room-id">ROOM 00130</div>
+<div class="title">Matrix Fragment — Sector C</div>
+<div class="card">
+  <div class="card-header"><span>FACILITY MAP — SECTOR C (00056–00085)</span><span>FRAGMENT 3 OF 5</span></div>
+  <div class="card-body">
+    <div class="alert">⚠ PARTIAL DATA — SECTOR C PRINTOUT INCOMPLETE — SOME NODES UNRESOLVABLE</div>
+<pre>
+<span class="edge">  ↑           ↑           ↑           ↑           ↑   </span>
+
+<span class="edge">┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐   ┌──────┐</span>
+<span class="edge">│</span><span class="active">00056 </span><span class="edge">│───│</span><span class="active">00057 </span><span class="edge">│───│</span><span class="active">00058 </span><span class="edge">│───│</span><span class="active">00059 </span><span class="edge">│───│</span><span class="active">00060 </span><span class="edge">│</span>
+<span class="edge">└──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘   └──────┘</span>
+<span class="edge">   │           │           │           │               </span>
+<span class="edge">┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──────┐</span>
+<span class="edge">│</span><span class="active">00066 </span><span class="edge">│───│</span><span class="active">00067 </span><span class="edge">│───│</span><span class="active">00068 </span><span class="edge">│   │</span><span class="active">00069 </span><span class="edge">│   │</span><span class="corrupt">??????</span><span class="edge">│</span>
+<span class="edge">└──┬───┘   └──────┘   └──┬───┘   └──────┘   └──────┘</span>
+<span class="edge">   │                       │                           </span>
+<span class="edge">┌──┴───┐   ┌──────┐   ┌──┴───┐   ┌──────┐   ┌──────┐</span>
+<span class="edge">│</span><span class="active">00076 </span><span class="edge">│───│</span><span class="active">00077 </span><span class="edge">│───│</span><span class="active">00078 </span><span class="edge">│───│</span><span class="active">00079 </span><span class="edge">│───│</span><span class="active">00080 </span><span class="edge">│</span>
+<span class="edge">└──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘   └──┬───┘</span>
+<span class="edge">   │           │           │           │           │    </span>
+<span class="edge">┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐   ┌──┴───┐</span>
+<span class="edge">│</span><span class="active">00081 </span><span class="edge">│───│</span><span class="active">00082 </span><span class="edge">│───│</span><span class="active">00083 </span><span class="edge">│───│</span><span class="active">00084 </span><span class="edge">│───│</span><span class="active">00085 </span><span class="edge">│</span>
+<span class="edge">└──────┘   └──────┘   └──────┘   └──────┘   └──────┘</span>
+
+<span class="warn">           [node 00070 could not be resolved]         </span>
+</pre>
+    <div class="log">
+      <div class="log-row"><span class="lnum">00059</span><span class="ldesc">Paradox chamber. Self-referential. Cannot be exited by logic.</span><span class="ltype">PARADOX</span></div>
+      <div class="log-row"><span class="lnum">00068</span><span class="ldesc">Dead node. Accepts input. Produces no output. Logged.</span><span class="ltype">DEAD</span></div>
+      <div class="log-row"><span class="lnum">00070</span><span class="ldesc">Status unknown. Node present in registry. Location unresolvable.</span><span class="ltype">ERROR</span></div>
+      <div class="log-row"><span class="lnum">00078</span><span class="ldesc">Signal origin. Transmits. No confirmed receiver.</span><span class="ltype">SIGNAL</span></div>
+      <div class="log-row"><span class="lnum">00083</span><span class="ldesc">Registry node. All entities catalogued here. Undeletable.</span><span class="ltype">REGISTRY</span></div>
+    </div>
+  </div>
+  <div class="footnote">Fragment C of 5. Node 00070 absent from this printout. This is not an error in the printout. Data integrity: 71%.</div>
+</div>
+<script src="/shared/matrix-nav.js"></script>
+</body>
+</html>
