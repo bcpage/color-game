@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00112 — Reference Data</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508; color: #8a9aaa;
+    font-family: 'Courier New', monospace; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 32px; padding: 40px 20px;
+  }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #223; }
+  .title { font-size: 12px; letter-spacing: 5px; color: #445; text-transform: uppercase; }
+  .card { width: 100%; max-width: 480px; border: 1px solid #1a1a2a; background: #080810; }
+  .card-header { border-bottom: 1px solid #1a1a2a; padding: 14px 20px; font-size: 10px; letter-spacing: 4px; color: #334; text-transform: uppercase; }
+  .card-body { padding: 28px 20px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-bottom: 1px solid #0e0e18; font-size: 12px; gap: 20px; }
+  .row:last-child { border-bottom: none; }
+  .row .label { color: #334; letter-spacing: 2px; }
+  .row .value { color: #7a9aaa; font-size: 14px; text-align: right; }
+  .row .value.primary { color: #9ab4c4; font-size: 17px; letter-spacing: 1px; }
+  .footnote { font-size: 10px; color: #223; letter-spacing: 1px; padding: 16px 20px; border-top: 1px solid #0e0e18; line-height: 1.8; }
+</style>
+</head>
+<body data-game="00112" data-nav="matrix">
+
+<div class="room-id">ROOM 00112</div>
+<div class="title">Physical Constants — Reference Node</div>
+
+<div class="card">
+  <div class="card-header">Thermodynamic Reference — Phase Transition</div>
+  <div class="card-body">
+    <div class="row"><span class="label">SUBSTANCE</span><span class="value">Water (H₂O)</span></div>
+    <div class="row"><span class="label">TRANSITION</span><span class="value">Liquid → Gas (Boiling)</span></div>
+    <div class="row"><span class="label">PRESSURE</span><span class="value">1 atm (101.325 kPa)</span></div>
+    <div class="row"><span class="label">CELSIUS</span><span class="value primary">100.0 °C</span></div>
+    <div class="row"><span class="label">FAHRENHEIT</span><span class="value primary">212.0 °F</span></div>
+    <div class="row"><span class="label">KELVIN</span><span class="value primary">373.15 K</span></div>
+    <div class="row"><span class="label">SOURCE</span><span class="value">IUPAC 2003</span></div>
+  </div>
+  <div class="footnote">
+    Standard boiling point at 1 atmosphere.<br>
+    Varies with altitude and dissolved solutes.
+  </div>
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+</body>
+</html>

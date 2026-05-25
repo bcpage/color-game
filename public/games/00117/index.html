@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00117 — Wire Connection Panel</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508;
+    color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+  }
+  .header { text-align: center; }
+  .header h1 { font-size: 11px; letter-spacing: 4px; color: #555; }
+  .header .sub { font-size: 10px; color: #333; letter-spacing: 2px; margin-top: 4px; }
+  /* TV monitor frame */
+  .monitor {
+    background: #0a0a14;
+    border: 3px solid #1a1a2a;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,20,0.5);
+    position: relative;
+  }
+  .monitor::before {
+    content: 'CIRCUIT PANEL 7 — ROUTING REQUIRED';
+    position: absolute;
+    top: 6px; left: 50%; transform: translateX(-50%);
+    font-size: 8px; letter-spacing: 2px; color: #223; white-space: nowrap;
+  }
+  canvas { display: block; cursor: pointer; }
+  .status-bar {
+    display: flex; gap: 20px; justify-content: center;
+    font-size: 10px; color: #334; letter-spacing: 2px;
+  }
+  .status-bar span { color: #556; }
+  .hud { font-size: 11px; letter-spacing: 3px; color: #334; text-align: center; min-height: 20px; }
+  .hud.win { color: #4a8a4a; }
+  .btn {
+    background: none; border: 1px solid #1e1e2e; color: #445;
+    font-family: 'Courier New', monospace; font-size: 10px;
+    letter-spacing: 2px; padding: 7px 16px; cursor: pointer;
+    text-transform: uppercase; transition: border-color .15s, color .15s;
+  }
+  .btn:hover { border-color: #445; color: #8a9aaa; }
+  .puzzle-select { display: flex; gap: 8px; justify-content: center; }
+</style>
+</head>
+<body data-game="00117" data-nav="matrix">
+
+<div class="header">
+  <h1>Wire Connection Panel</h1>
+  <div class="sub">connect all pairs — fill every cell</div>
+</div>
+
+<div class="monitor">
+  <canvas id="c"></canvas>
+</div>
+
+<div class="hud" id="hud">SELECT A COLOR — CLICK ENDPOINT TO BEGIN</div>
+
+<div class="status-bar">
+  PAIRS <span id="pairs-done">0/5</span>
+  CELLS <span id="cells-done">0/36</span>
+</div>
+
+<div class="puzzle-select">
+  <button class="btn" onclick="loadPuzzle(0)">PUZZLE 1</button>
+  <button class="btn" onclick="loadPuzzle(1)">PUZZLE 2</button>
+  <button class="btn" onclick="loadPuzzle(2)">PUZZLE 3</button>
+  <button class="btn" onclick="resetCurrent()">CLEAR</button>
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const CELL = 52;
+const GAP  = 3;
+
+// Puzzles: 6x6 grids with verified solutions
+// Each puzzle: endpoints array + optional hint (solution grid for reference)
+// Colors: R,G,B,Y,P
+const CLRS = {
+  R: '#e94560', G: '#4aaa6a', B: '#4a80cc', Y: '#ccaa30', P: '#9a60cc', O: '#cc6a30'
+};
+
+const PUZZLES = [
+  {
+    size: 6,
+    // Solution paths (verified to cover all 36 cells):
+    // R: col 0 all rows (0,0)→(5,0). endpoints: (0,0),(5,0)
+    // G: row0 cols1-5 + row1 cols1-5. endpoints: (0,1),(1,1) [snaking path]
+    // B: row2 cols1-5 + col5 rows3-4 + row5 cols3-5. endpoints: (2,1),(5,3)
+    // Y: row3 cols1-4. endpoints: (3,1),(3,4)
+    // P: (4,1)→(5,1)→(5,2)→(4,2)→(4,3)→(4,4). endpoints: (4,1),(4,4)
+    pairs: [
+      { id:'R', color: CLRS.R, ep: [[0,0],[5,0]] },
+      { id:'G', color: CLRS.G, ep: [[0,1],[1,1]] },
+      { id:'B', color: CLRS.B, ep: [[2,1],[5,3]] },
+      { id:'Y', color: CLRS.Y, ep: [[3,1],[3,4]] },
+      { id:'P', color: CLRS.P, ep: [[4,1],[4,4]] },
+    ]
+  },
+  {
+    size: 6,
+    // Different layout
+    pairs: [
+      { id:'R', color: CLRS.R, ep: [[0,0],[0,5]] },
+      { id:'G', color: CLRS.G, ep: [[1,0],[1,5]] },
+      { id:'B', color: CLRS.B, ep: [[2,0],[5,5]] },
+      { id:'Y', color: CLRS.Y, ep: [[3,0],[3,5]] },
+      { id:'P', color: CLRS.P, ep: [[4,0],[5,0]] },
+    ]
+  },
+  {
+    size: 6,
+    pairs: [
+      { id:'R', color: CLRS.R, ep: [[0,0],[5,5]] },
+      { id:'G', color: CLRS.G, ep: [[0,5],[5,0]] },
+      { id:'B', color: CLRS.B, ep: [[0,2],[2,0]] },
+      { id:'Y', color: CLRS.Y, ep: [[0,3],[3,5]] },
+      { id:'P', color: CLRS.P, ep: [[2,3],[4,2]] },
+    ]
+  }
+];
+
+let puzzle, SIZE;
+let playerGrid;    // [r][c] = colorId or null
+let selected = null; // currently drawing color
+let drawing  = false;
+let drawPath = []; // cells being drawn in current stroke
+let solved   = false;
+let currentPuzzleIdx = 0;
+
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+
+function loadPuzzle(idx) {
+  currentPuzzleIdx = idx;
+  puzzle = PUZZLES[idx];
+  SIZE   = puzzle.size;
+  canvas.width  = SIZE * CELL + (SIZE - 1) * GAP;
+  canvas.height = SIZE * CELL + (SIZE - 1) * GAP;
+  resetCurrent();
+}
+
+function resetCurrent() {
+  playerGrid = Array.from({length: SIZE}, () => new Array(SIZE).fill(null));
+  // Pre-fill endpoints
+  for (const pair of puzzle.pairs) {
+    for (const [r,c] of pair.ep) {
+      playerGrid[r][c] = pair.id;
+    }
+  }
+  selected = null;
+  drawing  = false;
+  drawPath = [];
+  solved   = false;
+  document.getElementById('hud').textContent = 'SELECT A COLOR — CLICK ENDPOINT TO BEGIN';
+  document.getElementById('hud').className = 'hud';
+  updateStatus();
+  draw();
+}
+
+function cellAt(x, y) {
+  const step = CELL + GAP;
+  const c = Math.floor(x / step);
+  const r = Math.floor(y / step);
+  if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return null;
+  // Make sure click is inside cell, not gap
+  const cx = x - c * step, cy = y - r * step;
+  if (cx > CELL || cy > CELL) return null;
+  return [r, c];
+}
+
+function isEndpoint(r, c) {
+  for (const pair of puzzle.pairs)
+    for (const [er, ec] of pair.ep)
+      if (er === r && ec === c) return pair.id;
+  return null;
+}
+
+function colorOfId(id) {
+  return puzzle.pairs.find(p => p.id === id)?.color || '#fff';
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (solved) return;
+  const rect = canvas.getBoundingClientRect();
+  const cell = cellAt(e.clientX - rect.left, e.clientY - rect.top);
+  if (!cell) return;
+  const [r, c] = cell;
+
+  const ep = isEndpoint(r, c);
+  if (ep) {
+    // Start drawing from this endpoint — erase old path of this color first
+    clearColor(ep);
+    selected = ep;
+    drawing  = true;
+    drawPath = [[r, c]];
+    playerGrid[r][c] = ep;
+    draw();
+  } else if (selected && playerGrid[r][c] === selected) {
+    // Continue drawing
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (!drawing || !selected || solved) return;
+  const rect = canvas.getBoundingClientRect();
+  const cell = cellAt(e.clientX - rect.left, e.clientY - rect.top);
+  if (!cell) return;
+  const [r, c] = cell;
+  const last = drawPath[drawPath.length - 1];
+  if (!last) return;
+
+  // Must be adjacent to last
+  const dr = Math.abs(r - last[0]), dc = Math.abs(c - last[1]);
+  if (dr + dc !== 1) return;
+
+  // Check if it's an endpoint of different color — can't enter
+  const ep = isEndpoint(r, c);
+  if (ep && ep !== selected) return;
+
+  // Check if backtracking
+  if (drawPath.length >= 2) {
+    const prev = drawPath[drawPath.length - 2];
+    if (prev[0] === r && prev[1] === c) {
+      // Backtrack — erase last cell
+      const removed = drawPath.pop();
+      playerGrid[removed[0]][removed[1]] = null;
+      draw(); return;
+    }
+  }
+
+  // Check if cell already drawn (not backtrack)
+  if (playerGrid[r][c] !== null && playerGrid[r][c] !== selected) return;
+  if (playerGrid[r][c] === selected && drawPath.some(p => p[0]===r && p[1]===c)) return;
+
+  drawPath.push([r, c]);
+  playerGrid[r][c] = selected;
+
+  // If reached other endpoint of same color, finish
+  if (ep === selected && (r !== drawPath[0][0] || c !== drawPath[0][1])) {
+    drawing  = false;
+    drawPath = [];
+    selected = null;
+    checkWin();
+  }
+  draw();
+});
+
+canvas.addEventListener('mouseup', () => {
+  // Don't stop drawing on mouseup — allow continuing on mousemove
+});
+
+canvas.addEventListener('mouseleave', () => {
+  // Keep drawing state when leaving canvas
+});
+
+function clearColor(id) {
+  for (let r = 0; r < SIZE; r++)
+    for (let c = 0; c < SIZE; c++)
+      if (playerGrid[r][c] === id && !isEndpoint(r, c)) playerGrid[r][c] = null;
+  // Restore endpoints
+  for (const pair of puzzle.pairs)
+    if (pair.id === id)
+      for (const [er,ec] of pair.ep) playerGrid[er][ec] = id;
+}
+
+function isConnected(id) {
+  const ep = puzzle.pairs.find(p => p.id === id)?.ep;
+  if (!ep) return false;
+  const [start, end] = ep;
+  const visited = new Set();
+  const queue = [[start[0], start[1]]];
+  while (queue.length) {
+    const [r, c] = queue.shift();
+    const key = r + ',' + c;
+    if (visited.has(key)) continue;
+    visited.add(key);
+    if (r === end[0] && c === end[1]) return true;
+    for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+      const nr = r+dr, nc = c+dc;
+      if (nr>=0 && nr<SIZE && nc>=0 && nc<SIZE && playerGrid[nr][nc]===id && !visited.has(nr+','+nc))
+        queue.push([nr, nc]);
+    }
+  }
+  return false;
+}
+
+function checkWin() {
+  const allFilled = playerGrid.every(row => row.every(c => c !== null));
+  const allConnected = puzzle.pairs.every(p => isConnected(p.id));
+  updateStatus();
+  if (allFilled && allConnected) {
+    solved = true;
+    document.getElementById('hud').textContent = 'ALL CIRCUITS ROUTED — PANEL COMPLETE';
+    document.getElementById('hud').className = 'hud win';
+  }
+}
+
+function updateStatus() {
+  const filled = playerGrid.flat().filter(c => c !== null).length;
+  const connected = puzzle.pairs.filter(p => isConnected(p.id)).length;
+  document.getElementById('pairs-done').textContent = connected + '/' + puzzle.pairs.length;
+  document.getElementById('cells-done').textContent = filled + '/' + (SIZE * SIZE);
+}
+
+function draw() {
+  ctx.fillStyle = '#080812';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const step = CELL + GAP;
+
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      const x = c * step, y = r * step;
+      const color = playerGrid[r][c];
+
+      // Cell background
+      ctx.fillStyle = color ? colorOfId(color) + '22' : '#0d0d1a';
+      ctx.fillRect(x, y, CELL, CELL);
+
+      // Border
+      ctx.strokeStyle = color ? colorOfId(color) + '44' : '#151520';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, CELL - 1, CELL - 1);
+
+      // Endpoint dot
+      const ep = isEndpoint(r, c);
+      if (ep) {
+        const cx = x + CELL/2, cy = y + CELL/2;
+        ctx.fillStyle = colorOfId(ep);
+        ctx.beginPath();
+        ctx.arc(cx, cy, CELL * 0.28, 0, Math.PI * 2);
+        ctx.fill();
+        // Inner ring
+        ctx.strokeStyle = '#050508';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, CELL * 0.28 - 3, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (color) {
+        // Path fill indicator
+        const cx = x + CELL/2, cy = y + CELL/2;
+        ctx.fillStyle = colorOfId(color) + 'aa';
+        ctx.fillRect(cx - 6, cy - 6, 12, 12);
+      }
+    }
+  }
+
+  // Highlight selected
+  if (selected) {
+    const pair = puzzle.pairs.find(p => p.id === selected);
+    if (pair) {
+      for (const [er, ec] of pair.ep) {
+        ctx.strokeStyle = colorOfId(selected);
+        ctx.lineWidth = 2;
+        ctx.strokeRect(ec * step + 2, er * step + 2, CELL - 4, CELL - 4);
+      }
+    }
+  }
+}
+
+// Touch support
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY }));
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY }));
+}, { passive: false });
+
+loadPuzzle(0);
+</script>
+</body>
+</html>

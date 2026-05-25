@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00116 — Facility Calendar</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508;
+    color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    padding: 40px 20px;
+  }
+  .header { text-align: center; }
+  .header h1 { font-size: 10px; letter-spacing: 5px; color: #333; text-transform: uppercase; }
+  .header .sub { font-size: 10px; color: #223; letter-spacing: 3px; margin-top: 6px; }
+  .cal-wrap {
+    width: 100%;
+    max-width: 380px;
+    border: 1px solid #1a1a2a;
+    background: #070710;
+  }
+  .cal-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid #1a1a2a;
+  }
+  .cal-nav-btn {
+    background: none;
+    border: 1px solid #1e1e2e;
+    color: #445;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    width: 28px; height: 28px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .cal-nav-btn:hover { border-color: #555; color: #8a9aaa; }
+  .cal-month {
+    font-size: 13px;
+    letter-spacing: 4px;
+    color: #556;
+    text-transform: uppercase;
+  }
+  .cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background: #0e0e1a;
+    border-top: 1px solid #0e0e1a;
+  }
+  .cal-day-label {
+    text-align: center;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #334;
+    padding: 10px 4px 8px;
+    background: #070710;
+  }
+  .cal-day {
+    text-align: center;
+    font-size: 12px;
+    color: #445;
+    padding: 10px 4px;
+    background: #070710;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    letter-spacing: 1px;
+    min-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cal-day:hover:not(.empty) { background: #0e0e1e; color: #7a8aaa; }
+  .cal-day.today { color: #7a9aaa; }
+  .cal-day.selected {
+    background: #1a0a10 !important;
+    color: #e94560 !important;
+    border: 1px solid #3a1020;
+  }
+  .cal-day.empty { cursor: default; }
+  .selected-display {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #334;
+    text-align: center;
+    padding: 14px;
+    border-top: 1px solid #0e0e1a;
+  }
+  .selected-display .date-val {
+    color: #e94560;
+    margin-top: 4px;
+    font-size: 13px;
+  }
+  .status-block {
+    width: 100%;
+    max-width: 380px;
+    border: 1px solid #0e0e1a;
+    padding: 14px 16px;
+    font-size: 10px;
+    color: #223;
+    letter-spacing: 2px;
+    line-height: 2.2;
+  }
+  .status-block .live { color: #334; }
+  .status-block .live span { color: #556; }
+</style>
+</head>
+<body data-game="00116" data-nav="matrix">
+
+<div class="header">
+  <h1>Facility Date Override Console</h1>
+  <div class="sub">Room 00116 — Temporal Reference Unit</div>
+</div>
+
+<div class="cal-wrap">
+  <div class="cal-nav">
+    <button class="cal-nav-btn" id="prev">←</button>
+    <div class="cal-month" id="month-label">—</div>
+    <button class="cal-nav-btn" id="next">→</button>
+  </div>
+  <div class="cal-grid" id="grid"></div>
+  <div class="selected-display">
+    FACILITY DATE
+    <div class="date-val" id="selected-label">NOT SET</div>
+  </div>
+</div>
+
+<div class="status-block">
+  <div class="live">SYSTEM TIME&nbsp;&nbsp;&nbsp;<span id="live-time">—</span></div>
+  <div class="live">DAY OF YEAR&nbsp;&nbsp;<span id="day-of-year">—</span></div>
+  <div class="live">UNIX EPOCH&nbsp;&nbsp;&nbsp;<span id="epoch">—</span></div>
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const MONTHS = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',
+                'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+const DAYS   = ['SU','MO','TU','WE','TH','FR','SA'];
+
+const now = new Date();
+let viewYear  = now.getFullYear();
+let viewMonth = now.getMonth(); // 0-based
+
+let selectedDate = JSON.parse(localStorage.getItem('null-facility-date') || 'null');
+
+function render() {
+  document.getElementById('month-label').textContent =
+    MONTHS[viewMonth] + ' ' + viewYear;
+
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+
+  // Day labels
+  DAYS.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'cal-day-label';
+    el.textContent = d;
+    grid.appendChild(el);
+  });
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  for (let i = 0; i < firstDay; i++) {
+    const el = document.createElement('div');
+    el.className = 'cal-day empty';
+    grid.appendChild(el);
+  }
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const el = document.createElement('div');
+    el.className = 'cal-day';
+    el.textContent = String(d).padStart(2, ' ');
+
+    const isToday = d === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
+    if (isToday) el.classList.add('today');
+
+    const key = `${viewYear}-${String(viewMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if (selectedDate === key) el.classList.add('selected');
+
+    el.addEventListener('click', () => selectDate(key, d));
+    grid.appendChild(el);
+  }
+}
+
+function selectDate(key, d) {
+  selectedDate = key;
+  localStorage.setItem('null-facility-date', JSON.stringify(key));
+  document.getElementById('selected-label').textContent =
+    DAYS[new Date(key).getDay()] + ' · ' + MONTHS[viewMonth] + ' ' + d + ' · ' + viewYear;
+  render();
+}
+
+document.getElementById('prev').addEventListener('click', () => {
+  viewMonth--;
+  if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+  render();
+});
+document.getElementById('next').addEventListener('click', () => {
+  viewMonth++;
+  if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+  render();
+});
+
+// Live clock
+function updateLive() {
+  const n = new Date();
+  const hh = String(n.getHours()).padStart(2,'0');
+  const mm = String(n.getMinutes()).padStart(2,'0');
+  const ss = String(n.getSeconds()).padStart(2,'0');
+  document.getElementById('live-time').textContent = `${hh}:${mm}:${ss}`;
+  document.getElementById('epoch').textContent = Math.floor(n.getTime()/1000);
+  const start = new Date(n.getFullYear(), 0, 0);
+  const doy = Math.floor((n - start) / 86400000);
+  document.getElementById('day-of-year').textContent = doy + ' of 365';
+}
+
+// Restore selected label
+if (selectedDate) {
+  const [y,m,d] = selectedDate.split('-').map(Number);
+  const dow = DAYS[new Date(selectedDate).getDay()];
+  document.getElementById('selected-label').textContent =
+    `${dow} · ${MONTHS[m-1]} ${d} · ${y}`;
+}
+
+render();
+updateLive();
+setInterval(updateLive, 1000);
+</script>
+</body>
+</html>
