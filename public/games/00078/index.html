@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Hallway — NULL</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #050508;
+  font-family: monospace;
+  height: 100vh;
+  overflow: hidden;
+}
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+.label {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: rgba(200, 175, 130, 0.35);
+  text-transform: uppercase;
+  pointer-events: none;
+}
+.dist {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: rgba(200, 175, 130, 0.25);
+  pointer-events: none;
+}
+</style>
+</head>
+<body data-game="00078" data-nav="matrix">
+
+<canvas id="c"></canvas>
+<div class="label">CORRIDOR 7 — SUBLEVEL 4</div>
+<div class="dist" id="dist">— m</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H, cx, cy;
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Hallway geometry
+const FRAME_COUNT = 28;
+const ASPECT = 1.9; // height taller than width
+let phase = 0;
+
+function easeDepth(t) {
+  return Math.pow(t, 1.6);
+}
+
+function drawHallway(ts) {
+  phase = (ts * 0.00014) % 1;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#050508';
+  ctx.fillRect(0, 0, W, H);
+
+  const maxW = Math.min(W, H) * 0.85;
+  const maxH = maxW * ASPECT;
+
+  for (let i = 0; i < FRAME_COUNT; i++) {
+    // raw depth 0=near, 1=far
+    let t = ((i / FRAME_COUNT) + phase) % 1;
+    t = 1 - t; // flip: 0=far end, 1=near
+
+    const depth = easeDepth(t);
+    const fw = maxW * depth;
+    const fh = maxH * depth;
+    const x = cx - fw / 2;
+    const y = cy - fh / 2;
+
+    const opacity = Math.pow(t, 0.6) * 0.55;
+    const warm = Math.floor(t * 55 + 10);
+
+    ctx.strokeStyle = `rgba(${warm + 160}, ${warm + 140}, ${warm + 90}, ${opacity})`;
+    ctx.lineWidth = t < 0.15 ? 0.4 : 0.8;
+    ctx.strokeRect(x, y, fw, fh);
+
+    // Floor line
+    if (t > 0.12) {
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(${warm + 120}, ${warm + 100}, ${warm + 60}, ${opacity * 0.5})`;
+      ctx.lineWidth = 0.5;
+      ctx.moveTo(cx - fw / 2, cy + fh / 2);
+      ctx.lineTo(cx + fw / 2, cy + fh / 2);
+      ctx.stroke();
+    }
+  }
+
+  // Draw lines from corners of nearest frame to vanishing point
+  const nearW = maxW;
+  const nearH = maxH * ASPECT;
+  const nearX = cx - nearW / 2;
+  const nearY = cy - nearH / 2;
+
+  const corners = [
+    [nearX, nearY], [nearX + nearW, nearY],
+    [nearX, nearY + nearH], [nearX + nearW, nearY + nearH]
+  ];
+  ctx.strokeStyle = 'rgba(170, 150, 100, 0.06)';
+  ctx.lineWidth = 1;
+  for (const [px, py] of corners) {
+    ctx.beginPath();
+    ctx.moveTo(px, py);
+    ctx.lineTo(cx, cy);
+    ctx.stroke();
+  }
+
+  // Vanishing light
+  const flicker = 0.7 + 0.3 * Math.sin(ts * 0.002) * Math.sin(ts * 0.0037);
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 80);
+  grad.addColorStop(0, `rgba(255, 248, 220, ${0.18 * flicker})`);
+  grad.addColorStop(0.3, `rgba(240, 220, 160, ${0.06 * flicker})`);
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(cx - 80, cy - 80, 160, 160);
+
+  // Center dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(255, 248, 200, ${0.6 * flicker})`;
+  ctx.fill();
+
+  requestAnimationFrame(drawHallway);
+}
+
+requestAnimationFrame(drawHallway);
+
+// Distance counter — advances forever, never arrives
+let dist = 1000 + Math.floor(Math.random() * 8000);
+const distEl = document.getElementById('dist');
+distEl.textContent = dist.toLocaleString() + ' m';
+setInterval(() => {
+  dist += Math.floor(Math.random() * 4) + 1;
+  distEl.textContent = dist.toLocaleString() + ' m';
+}, 900);
+</script>
+</body>
+</html>
