@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monty Hall — NULL</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: #050508;
+  color: #ccc;
+  font-family: monospace;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  gap: 2rem;
+}
+h1 {
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+  color: rgba(200, 180, 140, 0.5);
+  text-transform: uppercase;
+  text-align: center;
+}
+.prompt {
+  font-size: 0.8rem;
+  letter-spacing: 0.1em;
+  color: rgba(200, 180, 140, 0.6);
+  text-align: center;
+  min-height: 1.4em;
+}
+.doors {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.door {
+  width: 100px;
+  height: 170px;
+  border: 1px solid rgba(200, 180, 140, 0.3);
+  border-radius: 2px 2px 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 0.2s, background 0.2s;
+  background: rgba(255,255,255,0.02);
+  user-select: none;
+}
+.door:hover:not(.disabled) {
+  border-color: rgba(200, 180, 140, 0.7);
+  background: rgba(200, 180, 140, 0.05);
+}
+.door.selected {
+  border-color: #e94560;
+}
+.door.revealed {
+  border-color: rgba(100, 100, 100, 0.4);
+  background: rgba(255,255,255,0.01);
+  cursor: default;
+}
+.door.disabled { cursor: default; }
+.door-num {
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  color: rgba(200, 180, 140, 0.4);
+  margin-bottom: 0.8rem;
+}
+.door-content {
+  font-size: 2rem;
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.door-knob {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(200, 180, 140, 0.3);
+}
+.choices {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+.btn {
+  padding: 0.5rem 1.5rem;
+  border: 1px solid rgba(200, 180, 140, 0.4);
+  background: transparent;
+  color: rgba(200, 180, 140, 0.7);
+  font-family: monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+.btn:hover {
+  border-color: rgba(200, 180, 140, 0.9);
+  color: #e8dfc0;
+  background: rgba(200, 180, 140, 0.06);
+}
+.btn.primary { border-color: #e94560; color: #e94560; }
+.btn.primary:hover { background: rgba(233, 69, 96, 0.1); }
+.result {
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  text-align: center;
+  min-height: 1.4em;
+  color: rgba(200, 200, 200, 0.6);
+}
+.stats {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: rgba(160, 160, 160, 0.35);
+  text-align: center;
+  line-height: 1.9;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding-top: 1.5rem;
+  width: 100%;
+  max-width: 360px;
+}
+.stats strong { color: rgba(200, 180, 140, 0.5); }
+</style>
+</head>
+<body data-game="00080" data-nav="matrix">
+
+<h1>The Monty Hall Problem</h1>
+<div class="prompt" id="prompt">Choose a door.</div>
+
+<div class="doors" id="doors">
+  <div class="door" id="d0" onclick="pick(0)">
+    <div class="door-num">DOOR 1</div>
+    <div class="door-content" id="c0"></div>
+    <div class="door-knob"></div>
+  </div>
+  <div class="door" id="d1" onclick="pick(1)">
+    <div class="door-num">DOOR 2</div>
+    <div class="door-content" id="c1"></div>
+    <div class="door-knob"></div>
+  </div>
+  <div class="door" id="d2" onclick="pick(2)">
+    <div class="door-num">DOOR 3</div>
+    <div class="door-content" id="c2"></div>
+    <div class="door-knob"></div>
+  </div>
+</div>
+
+<div class="choices" id="choices" style="display:none">
+  <button class="btn" onclick="decide('stay')">Stay</button>
+  <button class="btn primary" onclick="decide('switch')">Switch</button>
+</div>
+
+<div class="result" id="result"></div>
+
+<div class="stats" id="stats"></div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+let car, revealed, chosen;
+let phase = 'pick'; // pick → offer → done
+
+function reset() {
+  car = Math.floor(Math.random() * 3);
+  revealed = null;
+  chosen = null;
+  phase = 'pick';
+  document.getElementById('prompt').textContent = 'Choose a door.';
+  document.getElementById('result').textContent = '';
+  document.getElementById('choices').style.display = 'none';
+  for (let i = 0; i < 3; i++) {
+    const d = document.getElementById('d' + i);
+    d.className = 'door';
+    d.onclick = () => pick(i);
+    document.getElementById('c' + i).textContent = '';
+  }
+}
+
+function pick(i) {
+  if (phase !== 'pick') return;
+  chosen = i;
+  phase = 'offer';
+
+  document.getElementById('d' + i).classList.add('selected');
+
+  // Reveal a goat door (not chosen, not car)
+  const goats = [0,1,2].filter(x => x !== i && x !== car);
+  revealed = goats[Math.floor(Math.random() * goats.length)];
+
+  document.getElementById('d' + revealed).classList.add('revealed', 'disabled');
+  document.getElementById('d' + revealed).onclick = null;
+  document.getElementById('c' + revealed).textContent = '🐐';
+
+  document.getElementById('prompt').textContent =
+    'One door has been opened. Stay with your choice, or switch?';
+  document.getElementById('choices').style.display = 'flex';
+}
+
+function decide(action) {
+  if (phase !== 'offer') return;
+  phase = 'done';
+  document.getElementById('choices').style.display = 'none';
+
+  let finalDoor = chosen;
+  if (action === 'switch') {
+    finalDoor = [0,1,2].find(x => x !== chosen && x !== revealed);
+  }
+
+  const won = finalDoor === car;
+
+  // Reveal all doors
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('c' + i).textContent = i === car ? '🚗' : '🐐';
+    document.getElementById('d' + i).classList.add('revealed');
+    document.getElementById('d' + i).onclick = null;
+  }
+  document.getElementById('d' + finalDoor).classList.add('selected');
+
+  document.getElementById('result').textContent =
+    won ? '✓ You found the car.' : '✗ That was a goat.';
+
+  // Record to server
+  fetch('/api/monty', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, won })
+  }).then(() => loadStats());
+
+  setTimeout(reset, 3000);
+}
+
+function loadStats() {
+  fetch('/api/monty').then(r => r.json()).then(data => {
+    const { stayed_win, stayed_loss, switched_win, switched_loss } = data;
+    const sw = stayed_win + stayed_loss || 1;
+    const sx = switched_win + switched_loss || 1;
+    const stayPct = Math.round(stayed_win / sw * 100);
+    const switchPct = Math.round(switched_win / sx * 100);
+    document.getElementById('stats').innerHTML =
+      `Stayed: <strong>${stayed_win}</strong> wins / <strong>${stayed_loss}</strong> losses (${stayPct}% win rate)<br>` +
+      `Switched: <strong>${switched_win}</strong> wins / <strong>${switched_loss}</strong> losses (${switchPct}% win rate)<br>` +
+      `Theory predicts staying wins 33% of the time. Switching wins 67%.`;
+  }).catch(() => {});
+}
+
+reset();
+loadStats();
+</script>
+</body>
+</html>

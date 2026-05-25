@@ -7,7 +7,7 @@ const { networkInterfaces } = require('os');
 const PORT = 3000;
 
 // ─── Game registry ────────────────────────────────────────────────────────────
-const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '00009', '00010', '00011', '00012', '00013', '00014', '00015', '00016', '00017', '00018', '00019', '00020', '00021', '00022', '00023', '00024', '00025', '00026', '00027', '00028', '00029', '00030', '00031', '00032', '00033', '00034', '00035', '00036', '00037', '00038', '00039', '00040', '00041', '00042', '00043', '00044', '00045', '00046', '00047', '00048', '00049', '00050', '00051', '00052', '00053', '00054', '00055', '00056', '00057', '00058', '00059', '00060', '00061', '00062', '00063', '00064', '00065', '00066', '00067', '00068', '00069', '00070', '00071', '00072', '00073', '00074', '00075', '00076', '00077', '00078', '00079'];
+const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '00008', '00009', '00010', '00011', '00012', '00013', '00014', '00015', '00016', '00017', '00018', '00019', '00020', '00021', '00022', '00023', '00024', '00025', '00026', '00027', '00028', '00029', '00030', '00031', '00032', '00033', '00034', '00035', '00036', '00037', '00038', '00039', '00040', '00041', '00042', '00043', '00044', '00045', '00046', '00047', '00048', '00049', '00050', '00051', '00052', '00053', '00054', '00055', '00056', '00057', '00058', '00059', '00060', '00061', '00062', '00063', '00064', '00065', '00066', '00067', '00068', '00069', '00070', '00071', '00072', '00073', '00074', '00075', '00076', '00077', '00078', '00079', '00080'];
 
 // ─── Matrix navigation ────────────────────────────────────────────────────────
 const MATRIX_FILE = path.join(__dirname, 'data', 'matrix.json');
@@ -97,6 +97,22 @@ if (!fs.existsSync(TICKET_DATA_DIR)) fs.mkdirSync(TICKET_DATA_DIR, { recursive: 
 let ticketData = { next: 1, issued: {} };
 try { ticketData = JSON.parse(fs.readFileSync(TICKET_FILE, 'utf8')); } catch (e) {}
 function saveTickets() { fs.writeFileSync(TICKET_FILE, JSON.stringify(ticketData)); }
+
+// ─── Monty Hall (00080) ───────────────────────────────────────────────────────
+const MONTY_DATA_DIR = path.join(__dirname, 'public', 'games', '00080', 'data');
+const MONTY_FILE = path.join(MONTY_DATA_DIR, 'monty.json');
+if (!fs.existsSync(MONTY_DATA_DIR)) fs.mkdirSync(MONTY_DATA_DIR, { recursive: true });
+let montyData = { stayed_win: 0, stayed_loss: 0, switched_win: 0, switched_loss: 0 };
+try { montyData = JSON.parse(fs.readFileSync(MONTY_FILE, 'utf8')); } catch (e) {}
+function saveMonty() { fs.writeFileSync(MONTY_FILE, JSON.stringify(montyData)); }
+
+// ─── Registry (00083) ────────────────────────────────────────────────────────
+const REGISTRY_DATA_DIR = path.join(__dirname, 'public', 'games', '00083', 'data');
+const REGISTRY_FILE = path.join(REGISTRY_DATA_DIR, 'registry.json');
+if (!fs.existsSync(REGISTRY_DATA_DIR)) fs.mkdirSync(REGISTRY_DATA_DIR, { recursive: true });
+let registryEntries = [];
+try { registryEntries = JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8')); } catch (e) {}
+function saveRegistry() { fs.writeFileSync(REGISTRY_FILE, JSON.stringify(registryEntries)); }
 
 function getDeviceId(req) {
   const cookie = req.headers.cookie || '';
@@ -775,6 +791,52 @@ const httpServer = http.createServer((req, res) => {
     const id = userDeleteMatch[1];
     if (users[id]) { delete users[id]; saveUsers(); }
     sendJSON(res, { ok: true });
+    return;
+  }
+
+  // API: Monty Hall stats
+  if (pathname === '/api/monty' && method === 'GET') {
+    sendJSON(res, montyData); return;
+  }
+  if (pathname === '/api/monty' && method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { action, won } = JSON.parse(body);
+        if (action === 'stay')   { won ? montyData.stayed_win++   : montyData.stayed_loss++;   }
+        if (action === 'switch') { won ? montyData.switched_win++ : montyData.switched_loss++; }
+        saveMonty();
+        sendJSON(res, montyData);
+      } catch (e) { res.writeHead(400); res.end(); }
+    });
+    return;
+  }
+
+  // API: Registry ledger
+  if (pathname === '/api/registry' && method === 'GET') {
+    sendJSON(res, registryEntries.slice(-50)); return;
+  }
+  if (pathname === '/api/registry' && method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        const { designation, sector, purpose, clearance } = JSON.parse(body);
+        const entry = {
+          id: registryEntries.length + 1,
+          designation: String(designation || 'UNKNOWN').slice(0, 40),
+          sector: String(sector || '—').slice(0, 40),
+          purpose: String(purpose || '—').slice(0, 80),
+          clearance: String(clearance || 'NONE').slice(0, 20),
+          ts: Date.now()
+        };
+        registryEntries.push(entry);
+        if (registryEntries.length > 200) registryEntries = registryEntries.slice(-200);
+        saveRegistry();
+        sendJSON(res, entry);
+      } catch (e) { res.writeHead(400); res.end(); }
+    });
     return;
   }
 
