@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00155 — Waiting Room</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508; color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 20px; padding: 40px 20px;
+  }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #223; }
+  .title { font-size: 11px; letter-spacing: 5px; color: #334; text-transform: uppercase; }
+
+  #waiting-area {
+    border: 1px solid #0f0f1a; padding: 32px 40px;
+    background: #030306; max-width: 400px; width: 100%;
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+  }
+  .wa-label { font-size: 9px; letter-spacing: 4px; color: #1a1a28; }
+  #timer {
+    font-size: 48px; letter-spacing: 4px; color: #2a3a4a;
+    font-variant-numeric: tabular-nums;
+  }
+  .divider { width: 100%; border: none; border-top: 1px solid #0a0a14; }
+
+  .info-row { width: 100%; display: flex; justify-content: space-between; }
+  .info-item { font-size: 9px; letter-spacing: 2px; color: #1a1a28; }
+  .info-item span { display: block; color: #2a3a4a; font-size: 14px; margin-top: 4px; }
+
+  #seat-row {
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
+  }
+  .seat {
+    width: 24px; height: 24px; border: 1px solid #0f0f18;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px;
+  }
+  .seat.occupied { border-color: #1a2a3a; background: #060c14; color: #2a4a6a; }
+  .seat.you { border-color: #2a4a2a; background: #060e08; color: #3a6a3a; }
+  .seat.empty { background: #030306; color: #0a0a14; }
+
+  .number-tag {
+    font-size: 32px; letter-spacing: 4px; color: #1a2a3a;
+    border: 1px solid #0f0f18; padding: 8px 20px;
+    background: #030306;
+  }
+
+  #message { font-size: 10px; letter-spacing: 1px; color: #1a1a28; text-align: center; min-height: 18px; transition: color 1s; }
+
+  .note { font-size: 10px; letter-spacing: 1px; color: #1a1a28; text-align: center; line-height: 2.4; max-width: 340px; border-top: 1px solid #0a0a14; padding-top: 14px; }
+</style>
+</head>
+<body data-game="00155" data-nav="matrix">
+<div class="room-id">ROOM 00155</div>
+<div class="title">Waiting Room</div>
+
+<div id="waiting-area">
+  <div class="wa-label">NULL FACILITY — RECEPTION AREA B</div>
+  <div id="timer">00:00:00</div>
+  <div class="divider"></div>
+  <div class="info-row">
+    <div class="info-item">YOUR NUMBER<span id="your-num">—</span></div>
+    <div class="info-item" style="text-align:right">OTHERS WAITING<span id="others-count">—</span></div>
+  </div>
+  <div id="seat-row"></div>
+  <div id="message">Please wait. You will be seen shortly.</div>
+</div>
+
+<div class="note">
+  You are waiting.<br>
+  You have been waiting since you arrived.<br>
+  No one has been called.<br>
+  The number system is operational.<br>
+  The desk is staffed.<br>
+  Please wait.
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const arrivalTime = Date.now();
+const SEATS = 12;
+
+// Visit count — how many times this user has been to the waiting room
+const waitCount = (parseInt(localStorage.getItem('waiting_visits') || '0')) + 1;
+localStorage.setItem('waiting_visits', waitCount);
+
+// Fake queue number: deterministic based on session
+const queueNum = parseInt(localStorage.getItem('waiting_num') || '0') ||
+  (() => {
+    const n = 100 + Math.floor(Math.random() * 800);
+    localStorage.setItem('waiting_num', n);
+    return n;
+  })();
+
+document.getElementById('your-num').textContent = queueNum;
+
+// Timer
+function formatDuration(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+}
+
+setInterval(() => {
+  document.getElementById('timer').textContent = formatDuration(Date.now() - arrivalTime);
+}, 1000);
+
+// Seat occupancy (uses presence data)
+let presence = {};
+function renderSeats(occupancy) {
+  // Count people in this room from presence
+  const inHere = occupancy['00155'] || 0;
+  const others = Math.max(0, inHere - 1); // exclude self
+  document.getElementById('others-count').textContent = others || '0';
+
+  const row = document.getElementById('seat-row');
+  row.innerHTML = '';
+  for (let i = 0; i < SEATS; i++) {
+    const seat = document.createElement('div');
+    if (i === 0) {
+      seat.className = 'seat you';
+      seat.textContent = '▣';
+    } else if (i < inHere) {
+      seat.className = 'seat occupied';
+      seat.textContent = '▪';
+    } else {
+      seat.className = 'seat empty';
+      seat.textContent = '·';
+    }
+    row.appendChild(seat);
+  }
+}
+
+// Messages — rotate through slowly
+const messages = [
+  'Please wait. You will be seen shortly.',
+  'Your patience is noted.',
+  'The wait time is currently indeterminate.',
+  'Thank you for your continued patience.',
+  'Please do not leave. Your position in the queue is not held.',
+  'The desk is staffed. Please remain seated.',
+  'We apologize for the wait.',
+  'Your number will be called.',
+  'Please remain calm.',
+  'The wait has always been this long.',
+];
+let msgIdx = 0;
+setInterval(() => {
+  msgIdx = (msgIdx + 1) % messages.length;
+  const el = document.getElementById('message');
+  el.style.color = '#0a0a14';
+  setTimeout(() => {
+    el.textContent = messages[msgIdx];
+    el.style.color = '#1a1a28';
+  }, 1000);
+}, 12000);
+
+// Presence
+fetch('/api/presence')
+  .then(r => r.json())
+  .then(d => renderSeats(d.rooms || {}))
+  .catch(() => renderSeats({}));
+
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}`);
+  ws.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.game === 'presence' && msg.type === 'update') {
+        renderSeats(msg.rooms || {});
+      }
+    } catch {}
+  };
+  ws.onclose = () => setTimeout(connect, 3000);
+}
+connect();
+</script>
+</body>
+</html>

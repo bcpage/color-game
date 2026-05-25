@@ -10,9 +10,9 @@ For full specs, grep docs/BACKLOG.md for the room name.
 |-----------|------------|-----------------|-------|
 | LORD — Red Dragon | Hard | 20 | Full RPG loop; needs dedicated spec first |
 | ~~Zork II: Wizard of Frobozz~~ | ~~Easy–Med~~ | — | **BUILT** → 00137 |
-| ELIZA — Upgraded | Easy+Med | 6 | Glitch sequence + facility voice simulation (no API key needed) |
+| ~~ELIZA — Upgraded~~ | ~~Easy+Med~~ | — | **BUILT** → 00149 |
 | ~~External Observation Windows~~ | ~~Easy~~ | — | **BUILT** → 00091 |
-| The Observation Room | Medium | 8 | Watch another user live; needs presence tracking infra |
+| ~~The Observation Room~~ | ~~Medium~~ | — | **BUILT** → 00148 |
 | ~~The Invisible Character Room~~ | ~~Easy~~ | — | **BUILT** → 00089 |
 | ~~Binary Control Panel~~ | ~~Easy~~ | — | **BUILT** → 00102 |
 | ~~The Joshua Room~~ | ~~Easy~~ | — | **BUILT** → 00099 |
@@ -41,7 +41,7 @@ For full specs, grep docs/BACKLOG.md for the room name.
 | ~~Useless Information C — Fossil Room~~ | ~~Trivial~~ | — | **BUILT** → 00069 |
 | ~~Ominous Countdown Timer~~ | ~~Easy~~ | — | **BUILT** → 00067 |
 | ~~Jump Scare Room~~ | ~~Easy~~ | — | **BUILT** → 00074 |
-| TARDIS-inspired | Medium | 10 | Blue box, bigger inside; can design while building |
+| ~~TARDIS-inspired~~ | ~~Medium~~ | — | **BUILT** → 00150 |
 | ~~The Hookah-Smoking Caterpillar~~ | ~~Easy~~ | — | **BUILT** → 00072 |
 | ~~Empty Rooms ×3~~ | ~~Trivial~~ | — | **BUILT** → 00055, 00056, 00057 |
 | ~~Links to Nonexistent Rooms ×3–5~~ | ~~Trivial~~ | — | **BUILT** → 00100 |
@@ -66,7 +66,7 @@ For full specs, grep docs/BACKLOG.md for the room name.
 | ~~Wrong Pac-Man~~ | ~~Medium~~ | — | **BUILT** → 00108 |
 | ~~Wrong Breakout~~ | ~~Easy~~ | — | **BUILT** → 00065 |
 | ~~HAL 9000 — The Eye~~ | ~~Medium~~ | — | **BUILT** → 00134 |
-| The NULL Room (full matrix) | Medium | 6 | Full matrix view + live presence; needs presence tracking |
+| The NULL Room (full matrix) | Medium | 6 | Full matrix view + live presence; presence tracking now done (00148) |
 | ~~Partial Matrix Fragments ×5~~ | ~~Medium~~ | — | **BUILT** → 00128–00132 |
 | The Tile Room (interactive matrix) | Hard | 15 | Players mutate the map; auto-separation algorithm |
 | ~~The Signal~~ | ~~Easy~~ | — | **BUILT** → 00082 |

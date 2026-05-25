@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00156 — Vending Machine</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508; color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px; padding: 40px 20px;
+  }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #223; }
+  .title { font-size: 11px; letter-spacing: 5px; color: #334; text-transform: uppercase; }
+
+  #machine {
+    display: flex; gap: 0;
+    border: 2px solid #1a1a2a; background: #040408;
+    max-width: 500px; width: 100%;
+  }
+
+  /* Product grid */
+  #product-grid {
+    flex: 1; padding: 16px; display: flex; flex-direction: column; gap: 2px;
+    border-right: 1px solid #0f0f1a;
+  }
+  .product-row { display: flex; gap: 2px; }
+  .product-slot {
+    flex: 1; border: 1px solid #0f0f18; padding: 6px 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    cursor: pointer; background: #030306; transition: border-color 0.15s;
+    min-width: 0;
+  }
+  .product-slot:hover { border-color: #1a2a3a; }
+  .product-slot.selected { border-color: #2a4a6a; background: #040810; }
+  .product-slot.sold-out { opacity: 0.3; cursor: default; }
+  .slot-code { font-size: 7px; letter-spacing: 2px; color: #1a2a3a; }
+  .slot-name { font-size: 8px; letter-spacing: 1px; color: #2a3a4a; text-align: center; line-height: 1.4; }
+  .slot-price { font-size: 8px; letter-spacing: 1px; color: #1a3a2a; }
+  .slot-icon { font-size: 16px; line-height: 1; }
+
+  /* Control panel */
+  #control-panel {
+    width: 130px; padding: 14px; display: flex; flex-direction: column; gap: 10px;
+    background: #030307;
+  }
+  .panel-label { font-size: 7px; letter-spacing: 3px; color: #1a1a28; }
+
+  #credit-display {
+    background: #010104; border: 1px solid #0a0a18; padding: 8px;
+    text-align: center; font-size: 18px; letter-spacing: 2px;
+    color: #1a3a2a; font-family: 'Courier New', monospace;
+  }
+  #selection-display {
+    background: #010104; border: 1px solid #0a0a18; padding: 6px 8px;
+    font-size: 9px; letter-spacing: 2px; color: #1a2a3a; min-height: 28px;
+  }
+
+  .panel-btn {
+    background: #050508; border: 1px solid #111120; color: #2a3a4a;
+    font-family: 'Courier New', monospace; font-size: 8px;
+    letter-spacing: 2px; padding: 7px 4px; cursor: pointer; width: 100%;
+    transition: all 0.15s;
+  }
+  .panel-btn:hover { background: #080810; border-color: #1a1a28; color: #3a4a5a; }
+
+  #coin-slot {
+    background: #030306; border: 1px solid #0f0f18; border-radius: 1px;
+    padding: 8px; text-align: center; font-size: 8px; letter-spacing: 2px;
+    color: #1a1a28; cursor: pointer; transition: border-color 0.15s;
+  }
+  #coin-slot:hover { border-color: #1a2a1a; color: #2a3a2a; }
+
+  #dispense-slot {
+    border: 1px solid #0a0a14; padding: 10px 6px; min-height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    background: #020204;
+  }
+  .dispensed { font-size: 18px; animation: drop 0.4s ease-in; }
+  @keyframes drop { from { transform: translateY(-8px); opacity: 0.5; } to { transform: translateY(0); opacity: 1; } }
+
+  #status-msg {
+    font-size: 8px; letter-spacing: 1px; color: #1a2a3a;
+    line-height: 1.6; min-height: 40px;
+  }
+
+  .note { font-size: 10px; letter-spacing: 1px; color: #223; text-align: center; line-height: 2.2; max-width: 400px; border-top: 1px solid #111120; padding-top: 12px; }
+</style>
+</head>
+<body data-game="00156" data-nav="matrix">
+<div class="room-id">ROOM 00156</div>
+<div class="title">Vending Machine</div>
+
+<div id="machine">
+  <div id="product-grid"></div>
+  <div id="control-panel">
+    <div class="panel-label">NULL SNACKS INC.</div>
+    <div>
+      <div class="panel-label">CREDIT</div>
+      <div id="credit-display">$0.00</div>
+    </div>
+    <div>
+      <div class="panel-label">SELECTION</div>
+      <div id="selection-display">—</div>
+    </div>
+    <button class="panel-btn" id="vend-btn">VEND</button>
+    <button class="panel-btn" id="cancel-btn">CANCEL</button>
+    <div class="panel-label" style="margin-top:4px">INSERT COIN</div>
+    <div id="coin-slot">[ ¢ ]</div>
+    <div class="panel-label">DISPENSE</div>
+    <div id="dispense-slot"></div>
+    <div id="status-msg">Machine ready.</div>
+  </div>
+</div>
+
+<div class="note">
+  The machine accepts all coins.<br>
+  It dispenses nothing.<br>
+  The money is gone.<br>
+  The machine has been here since the facility opened.
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const PRODUCTS = [
+  // [code, icon, name, price, soldOut]
+  ['A1', '🥤', 'LIMINAL COLA', '$1.25', false],
+  ['A2', '🍫', 'VOID BAR', '$1.50', false],
+  ['A3', '🥨', 'NULL PRETZELS', '$0.75', true],
+  ['A4', '🍬', 'RECURSIVE CANDY', '$0.50', false],
+  ['B1', '🧃', 'FACILITY JUICE', '$1.75', false],
+  ['B2', '🍪', 'REDACTED COOKIES', '$1.00', true],
+  ['B3', '🍫', 'ANOMALY BAR', '$1.25', false],
+  ['B4', '🥤', 'THRESHOLD WATER', '$1.00', false],
+  ['C1', '🍿', 'DATUM POPCORN', '$0.75', true],
+  ['C2', '🧆', 'TRANSIT SNACK', '$1.50', false],
+  ['C3', '🍭', 'SIGNAL LOLLY', '$0.50', false],
+  ['C4', '🍦', 'VESTIBULE CREAM', '$2.00', false],
+];
+
+let credit = 0;
+let selected = null;
+let totalCoinsLost = parseInt(localStorage.getItem('vend_coins_lost') || '0');
+let totalVendAttempts = parseInt(localStorage.getItem('vend_attempts') || '0');
+
+// Build grid
+const grid = document.getElementById('product-grid');
+const rows = 3;
+const cols = 4;
+for (let r = 0; r < rows; r++) {
+  const row = document.createElement('div');
+  row.className = 'product-row';
+  for (let c = 0; c < cols; c++) {
+    const p = PRODUCTS[r * cols + c];
+    const slot = document.createElement('div');
+    slot.className = 'product-slot' + (p[4] ? ' sold-out' : '');
+    slot.dataset.code = p[0];
+    slot.innerHTML = `
+      <div class="slot-icon">${p[1]}</div>
+      <div class="slot-code">${p[0]}</div>
+      <div class="slot-name">${p[2]}</div>
+      <div class="slot-price">${p[3]}</div>
+    `;
+    if (!p[4]) {
+      slot.addEventListener('click', () => selectProduct(p));
+    }
+    row.appendChild(slot);
+  }
+  grid.appendChild(row);
+}
+
+function selectProduct(p) {
+  document.querySelectorAll('.product-slot').forEach(s => s.classList.remove('selected'));
+  selected = p;
+  const el = document.querySelector(`.product-slot[data-code="${p[0]}"]`);
+  if (el) el.classList.add('selected');
+  document.getElementById('selection-display').textContent = `${p[0]}: ${p[2]}`;
+  setStatus(`Selected: ${p[2]}\nPrice: ${p[3]}`);
+}
+
+function setStatus(msg) {
+  document.getElementById('status-msg').textContent = msg;
+}
+
+document.getElementById('coin-slot').addEventListener('click', () => {
+  const coins = [0.25, 0.50, 1.00];
+  const coin = coins[Math.floor(Math.random() * coins.length)];
+  credit += coin;
+  totalCoinsLost += coin;
+  localStorage.setItem('vend_coins_lost', totalCoinsLost);
+  document.getElementById('credit-display').textContent = `$${credit.toFixed(2)}`;
+  setStatus(`Accepted: $${coin.toFixed(2)}\nTotal: $${credit.toFixed(2)}`);
+});
+
+document.getElementById('vend-btn').addEventListener('click', () => {
+  if (!selected) { setStatus('Please make a selection.'); return; }
+  if (credit < 0.01) { setStatus('Please insert coins.'); return; }
+
+  totalVendAttempts++;
+  localStorage.setItem('vend_attempts', totalVendAttempts);
+
+  const price = parseFloat(selected[3].replace('$', ''));
+
+  if (credit < price) {
+    setStatus(`Insufficient credit.\nRequired: ${selected[3]}\nInserted: $${credit.toFixed(2)}`);
+    return;
+  }
+
+  // Take the money. Dispense nothing.
+  credit -= price;
+  document.getElementById('credit-display').textContent = `$${credit.toFixed(2)}`;
+
+  const dispenseSlot = document.getElementById('dispense-slot');
+  dispenseSlot.innerHTML = '';
+  setStatus(`Vending ${selected[2]}...\n\nPlease collect your item.`);
+
+  setTimeout(() => {
+    // Nothing comes out
+    dispenseSlot.innerHTML = '';
+    setStatus(`Error: Item unavailable.\nYour $${price.toFixed(2)} has been retained.\nAttempt #${totalVendAttempts} logged.`);
+  }, 1800);
+});
+
+document.getElementById('cancel-btn').addEventListener('click', () => {
+  if (credit > 0) {
+    setStatus(`Return: $${credit.toFixed(2)}\n\n[coin return jammed]`);
+    setTimeout(() => {
+      setStatus(`Coin return mechanism offline.\nFunds non-refundable.\nWe apologize for the inconvenience.`);
+      credit = 0;
+      document.getElementById('credit-display').textContent = '$0.00';
+    }, 2000);
+  } else {
+    selected = null;
+    document.querySelectorAll('.product-slot').forEach(s => s.classList.remove('selected'));
+    document.getElementById('selection-display').textContent = '—';
+    setStatus('Selection cleared.');
+  }
+});
+</script>
+</body>
+</html>

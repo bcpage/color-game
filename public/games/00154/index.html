@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00154 — The NULL Room</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #020204; color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; gap: 14px;
+    padding: 30px 20px 50px;
+  }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #1a1a28; }
+  .title { font-size: 11px; letter-spacing: 5px; color: #223; text-transform: uppercase; }
+  .subtitle { font-size: 9px; letter-spacing: 3px; color: #1a1a24; text-align: center; }
+  #null-canvas { display: block; border: 1px solid #0a0a14; background: #010103; }
+  .stats-row { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+  .stat { font-size: 9px; letter-spacing: 2px; color: #1a1a28; text-align: center; }
+  .stat span { display: block; color: #2a3a4a; font-size: 11px; margin-top: 2px; }
+  .note { font-size: 10px; letter-spacing: 1px; color: #1a1a28; text-align: center; line-height: 2.4; max-width: 400px; border-top: 1px solid #0a0a14; padding-top: 12px; }
+  #legend { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+  .leg { font-size: 8px; letter-spacing: 1px; color: #1a1a28; display: flex; align-items: center; gap: 5px; }
+  .leg-dot { width: 6px; height: 6px; border-radius: 50%; }
+</style>
+</head>
+<body data-game="00154" data-nav="matrix">
+<div class="room-id">ROOM 00154</div>
+<div class="title">The NULL Room</div>
+<div class="subtitle">complete facility map — all connections — live presence</div>
+
+<canvas id="null-canvas" width="560" height="420"></canvas>
+
+<div class="stats-row">
+  <div class="stat">ROOMS<span id="total-rooms">—</span></div>
+  <div class="stat">CONNECTIONS<span id="total-edges">—</span></div>
+  <div class="stat">ACTIVE<span id="active-count">—</span></div>
+  <div class="stat">YOU<span id="your-room">—</span></div>
+</div>
+
+<div id="legend">
+  <div class="leg"><div class="leg-dot" style="background:#e94560"></div> occupied</div>
+  <div class="leg"><div class="leg-dot" style="background:#ffa040"></div> you (00154)</div>
+  <div class="leg"><div class="leg-dot" style="background:#1a2a3a"></div> empty</div>
+  <div class="leg"><div style="width:16px;height:1px;background:#2a3a5a"></div> connection</div>
+</div>
+
+<div class="note">
+  This is the entire facility.<br>
+  Every room. Every connection.<br>
+  The bright ones have people in them.<br>
+  You are looking at the shape of a place<br>
+  most visitors never see whole.
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const canvas = document.getElementById('null-canvas');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// Grid layout: rooms arranged in a spatial grid
+// 15 columns, rows auto, each room has approximate coordinates
+const COLS = 16;
+const CELL_W = 28, CELL_H = 24;
+const PAD_X = (W - COLS * CELL_W) / 2;
+const PAD_Y = 18;
+
+function roomPos(id) {
+  const n = parseInt(id, 10) - 1;
+  const col = n % COLS;
+  const row = Math.floor(n / COLS);
+  return {
+    x: PAD_X + col * CELL_W + CELL_W / 2,
+    y: PAD_Y + row * CELL_H + CELL_H / 2,
+  };
+}
+
+let connections = {}; // { 'A|B': dir }
+let rooms = []; // room IDs
+let presence = {}; // roomId → count
+let frame = 0;
+let glowPhases = {};
+
+// Load matrix connections
+fetch('/api/games')
+  .then(r => r.json())
+  .then(gs => {
+    rooms = gs;
+    document.getElementById('total-rooms').textContent = gs.length;
+    return fetch('/matrix-data');
+  })
+  .catch(() => rooms = []);
+
+// Actually load connections from the matrix nav fetch
+// We'll reconstruct adjacency from /api/games arithmetic
+// (same logic as matrix-nav.js: right=+1, left=-1, up=+10, down=-10)
+function buildConnectionsFromGames(gameList) {
+  const gameSet = new Set(gameList);
+  const edgeSet = new Set();
+  gameList.forEach(id => {
+    const n = parseInt(id, 10);
+    const neighbors = {
+      right: n + 1,
+      left: n - 1,
+      up: n + 10,
+      down: n - 10,
+    };
+    Object.entries(neighbors).forEach(([dir, dest]) => {
+      if (dest >= 1) {
+        const destId = String(dest).padStart(5, '0');
+        if (gameSet.has(destId)) {
+          const key = [id, destId].sort().join('|');
+          if (!edgeSet.has(key)) {
+            edgeSet.add(key);
+            connections[key] = true;
+          }
+        }
+      }
+    });
+  });
+  document.getElementById('total-edges').textContent = edgeSet.size;
+}
+
+fetch('/api/games')
+  .then(r => r.json())
+  .then(gs => {
+    rooms = gs;
+    document.getElementById('total-rooms').textContent = gs.length;
+    buildConnectionsFromGames(gs);
+  })
+  .catch(() => {});
+
+fetch('/api/presence')
+  .then(r => r.json())
+  .then(d => { presence = d.rooms || {}; updateStats(); })
+  .catch(() => {});
+
+function updateStats() {
+  const active = Object.values(presence).reduce((a, b) => a + b, 0);
+  document.getElementById('active-count').textContent = active || '0';
+  document.getElementById('your-room').textContent = '00154';
+}
+
+function drawMap() {
+  ctx.fillStyle = '#010103';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw connections first (under nodes)
+  ctx.strokeStyle = 'rgba(30,50,80,0.35)';
+  ctx.lineWidth = 0.5;
+  Object.keys(connections).forEach(key => {
+    const [a, b] = key.split('|');
+    const pa = roomPos(a);
+    const pb = roomPos(b);
+    ctx.beginPath();
+    ctx.moveTo(pa.x, pa.y);
+    ctx.lineTo(pb.x, pb.y);
+    ctx.stroke();
+  });
+
+  // Draw rooms
+  rooms.forEach(id => {
+    const { x, y } = roomPos(id);
+    const count = presence[id] || 0;
+    const isHere = id === '00154';
+
+    if (count > 0 || isHere) {
+      if (!glowPhases[id]) glowPhases[id] = Math.random() * Math.PI * 2;
+      const pulse = 0.6 + Math.sin(frame * 0.05 + glowPhases[id]) * 0.35;
+      const color = isHere ? [255, 160, 64] : [233, 69, 96];
+
+      // Glow
+      const r = 10;
+      const grd = ctx.createRadialGradient(x, y, 1, x, y, r);
+      grd.addColorStop(0, `rgba(${color.join(',')},${pulse * 0.6})`);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Node
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${color.join(',')},${pulse})`;
+      ctx.fill();
+    } else {
+      // Empty node
+      ctx.beginPath();
+      ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#1a2030';
+      ctx.fill();
+    }
+  });
+
+  // Label a few landmark rooms
+  const landmarks = ['00001', '00050', '00100', '00150', '00154'];
+  ctx.font = '6px monospace';
+  ctx.textAlign = 'center';
+  landmarks.forEach(id => {
+    if (!rooms.includes(id)) return;
+    const { x, y } = roomPos(id);
+    ctx.fillStyle = 'rgba(40,60,80,0.6)';
+    ctx.fillText(id, x, y - 6);
+  });
+
+  frame++;
+}
+
+// WebSocket for live presence
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}`);
+  ws.onmessage = e => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.game === 'presence' && msg.type === 'update') {
+        presence = msg.rooms || {};
+        updateStats();
+      }
+    } catch {}
+  };
+  ws.onclose = () => setTimeout(connect, 3000);
+}
+
+connect();
+setInterval(drawMap, 50);
+</script>
+</body>
+</html>
