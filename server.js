@@ -1374,8 +1374,10 @@ wss.on('connection', (ws) => {
 
       // ── Racetrack ──
       if (data.game === 'race' && data.type === 'join') {
-        if (!race._s0) { race._s0 = ws; raceSeats.set(ws, 0); race.seatCount++; }
-        else if (!race._s1 && race._s0 !== ws) { race._s1 = ws; raceSeats.set(ws, 1); race.seatCount++; }
+        let seatIdx = -1;
+        if (!race._s0) { race._s0 = ws; raceSeats.set(ws, 0); race.seatCount++; seatIdx = 0; }
+        else if (!race._s1 && race._s0 !== ws) { race._s1 = ws; raceSeats.set(ws, 1); race.seatCount++; seatIdx = 1; }
+        if (seatIdx >= 0) ws.send(JSON.stringify({ game:'race', type:'seat', seat: seatIdx }));
         if (race._s0 && race._s1 && race.status === 'waiting') { race.status = 'playing'; }
         broadcast(raceStateMsg());
       }
@@ -1421,8 +1423,10 @@ wss.on('connection', (ws) => {
 
       // ── Paper Soccer ──
       if (data.game === 'soccer' && data.type === 'join') {
-        if (!soccer._s0) { soccer._s0 = ws; soccSeats.set(ws, 0); soccer.seatCount++; }
-        else if (!soccer._s1 && soccer._s0 !== ws) { soccer._s1 = ws; soccSeats.set(ws, 1); soccer.seatCount++; }
+        let seatIdx = -1;
+        if (!soccer._s0) { soccer._s0 = ws; soccSeats.set(ws, 0); soccer.seatCount++; seatIdx = 0; }
+        else if (!soccer._s1 && soccer._s0 !== ws) { soccer._s1 = ws; soccSeats.set(ws, 1); soccer.seatCount++; seatIdx = 1; }
+        if (seatIdx >= 0) ws.send(JSON.stringify({ game:'soccer', type:'seat', seat: seatIdx }));
         if (soccer._s0 && soccer._s1 && soccer.status === 'waiting') { soccer.status = 'playing'; }
         broadcast(soccerStateMsg());
       }
