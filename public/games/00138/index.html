@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00138 — Galton Board</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508; color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px; padding: 40px 20px; user-select: none;
+  }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #223; }
+  .title { font-size: 11px; letter-spacing: 5px; color: #445; text-transform: uppercase; }
+  #canvas-wrap {
+    border: 1px solid #1a1a2a; background: #060609; position: relative;
+  }
+  canvas { display: block; }
+  .controls {
+    display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    font-size: 10px; letter-spacing: 2px;
+  }
+  .ctrl-group { display: flex; gap: 6px; align-items: center; }
+  .ctrl-label { color: #334; }
+  button {
+    background: #0c0c18; border: 1px solid #1a2a3a; color: #7a9aaa;
+    font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px;
+    padding: 6px 14px; cursor: pointer;
+  }
+  button:hover { background: #10101e; border-color: #2a3a4a; }
+  button.active { background: #0a1a2a; border-color: #3a5a7a; color: #9ab4c4; }
+  .stats {
+    display: flex; gap: 24px; font-size: 10px; letter-spacing: 2px; color: #334;
+  }
+  .stats span { color: #556; }
+  .note {
+    font-size: 10px; letter-spacing: 1px; color: #223; line-height: 2;
+    text-align: center; max-width: 480px; border-top: 1px solid #111122;
+    padding-top: 12px;
+  }
+</style>
+</head>
+<body data-game="00138" data-nav="matrix">
+<div class="room-id">ROOM 00138</div>
+<div class="title">Galton Board</div>
+
+<div id="canvas-wrap">
+  <canvas id="c" width="540" height="440"></canvas>
+</div>
+
+<div class="controls">
+  <div class="ctrl-group">
+    <span class="ctrl-label">SPEED</span>
+    <button id="sp-slow" class="active">SLOW</button>
+    <button id="sp-med">MED</button>
+    <button id="sp-fast">FAST</button>
+    <button id="sp-inst">INSTANT</button>
+  </div>
+  <div class="ctrl-group">
+    <button id="drop-1">DROP 1</button>
+    <button id="drop-10">DROP 10</button>
+    <button id="drop-100">DROP 100</button>
+    <button id="drop-1000">DROP 1000</button>
+    <button id="reset-btn">RESET</button>
+  </div>
+  <div class="ctrl-group">
+    <button id="curve-btn" class="active">CURVE ON</button>
+  </div>
+</div>
+
+<div class="stats">
+  <span>BALLS: <span id="stat-balls">0</span></span>
+  <span>PEAK BIN: <span id="stat-peak">0</span></span>
+</div>
+
+<div class="note">
+  No ball is told where to go.<br>
+  Each ball makes random choices.<br>
+  The shape that emerges was inevitable.<br>
+  This is called the Central Limit Theorem.<br>
+  It applies to more things than you would expect.
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// Board layout
+const ROWS = 8;         // peg rows
+const PEG_R = 3;        // peg radius
+const BALL_R = 4;       // ball radius
+const BINS = ROWS + 1;  // 9 bins
+
+const TOP_PAD = 40;
+const BOTTOM_PAD = 120;
+const BIN_H = BOTTOM_PAD - 10;
+
+const ROW_SPACING = (H - TOP_PAD - BOTTOM_PAD) / ROWS;
+const PEG_SPACING = 44;
+const CENTER_X = W / 2;
+
+// Peg positions
+function pegXY(row, col) {
+  const totalWidth = row * PEG_SPACING;
+  const startX = CENTER_X - totalWidth / 2;
+  return {
+    x: startX + col * PEG_SPACING,
+    y: TOP_PAD + (row + 0.5) * ROW_SPACING
+  };
+}
+
+// Bin x positions
+function binX(bin) {
+  const totalWidth = ROWS * PEG_SPACING;
+  const startX = CENTER_X - totalWidth / 2;
+  return startX + bin * PEG_SPACING;
+}
+const BIN_W = PEG_SPACING - 4;
+const BIN_BASE_Y = H - 10;
+
+// State
+let bins = new Array(BINS).fill(0);
+let totalBalls = 0;
+let activeBalls = [];
+let speed = 'slow'; // slow, med, fast, instant
+let showCurve = true;
+let animFrame = null;
+
+// Speed settings: steps per animation frame
+const SPEED_STEPS = { slow: 0.015, med: 0.04, fast: 0.12, instant: 1 };
+
+// Ball: { path: [0|1 per row], step: 0..1 (current row), row: 0..ROWS-1 }
+function makeBall() {
+  const path = [];
+  for (let r = 0; r < ROWS; r++) path.push(Math.random() < 0.5 ? 0 : 1);
+  return { path, row: 0, step: 0 };
+}
+
+function ballPosition(ball) {
+  // Interpolate between peg positions
+  const { path, row, step } = ball;
+  // Current col = sum of path[0..row-1]
+  let col = path.slice(0, row).reduce((a,b)=>a+b, 0);
+  const pos0 = row === 0
+    ? { x: CENTER_X, y: TOP_PAD - 20 }
+    : pegXY(row - 1, col);
+
+  let nextCol;
+  if (row < ROWS) {
+    nextCol = col + path[row];
+    const pos1 = pegXY(row, nextCol);
+    return { x: pos0.x + (pos1.x - pos0.x) * step, y: pos0.y + (pos1.y - pos0.y) * step };
+  } else {
+    // Falling into bin
+    const finalCol = path.reduce((a,b)=>a+b, 0);
+    const bx = binX(finalCol);
+    const binTop = BIN_BASE_Y - bins[finalCol] * (BIN_H / Math.max(1, maxBin())) - 6;
+    return { x: pos0.x + (bx - pos0.x) * step, y: pos0.y + (binTop - pos0.y) * step };
+  }
+}
+
+function maxBin() { return Math.max(1, ...bins); }
+
+function dropBalls(n) {
+  if (speed === 'instant') {
+    for (let i = 0; i < n; i++) {
+      const b = makeBall();
+      const finalCol = b.path.reduce((a,v)=>a+v, 0);
+      bins[finalCol]++;
+      totalBalls++;
+    }
+    render();
+    updateStats();
+    return;
+  }
+  for (let i = 0; i < n; i++) activeBalls.push(makeBall());
+  if (!animFrame) loop();
+}
+
+function loop() {
+  const s = SPEED_STEPS[speed];
+  const done = [];
+  for (let i = 0; i < activeBalls.length; i++) {
+    const ball = activeBalls[i];
+    ball.step += s;
+    if (ball.step >= 1) {
+      ball.step -= 1;
+      ball.row++;
+      if (ball.row > ROWS) {
+        const finalCol = ball.path.reduce((a,v)=>a+v, 0);
+        bins[finalCol]++;
+        totalBalls++;
+        done.push(i);
+      }
+    }
+  }
+  // Remove completed balls (reverse to preserve indices)
+  for (let i = done.length - 1; i >= 0; i--) activeBalls.splice(done[i], 1);
+  render();
+  updateStats();
+  if (activeBalls.length > 0) animFrame = requestAnimationFrame(loop);
+  else animFrame = null;
+}
+
+function render() {
+  ctx.fillStyle = '#060609';
+  ctx.fillRect(0, 0, W, H);
+
+  const peak = maxBin();
+  const scale = (BIN_H - 20) / peak;
+
+  // Draw bins (bars)
+  for (let b = 0; b < BINS; b++) {
+    const bx = binX(b);
+    const bh = bins[b] * scale;
+    const alpha = 0.3 + (bins[b] / peak) * 0.5;
+    ctx.fillStyle = `rgba(90, 154, 204, ${alpha})`;
+    ctx.fillRect(bx - BIN_W/2, BIN_BASE_Y - bh, BIN_W, bh);
+    // Bin border
+    ctx.strokeStyle = '#1a2a3a';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx - BIN_W/2, BIN_BASE_Y - BIN_H, BIN_W, BIN_H);
+  }
+
+  // Normal curve overlay
+  if (showCurve && totalBalls > 5) {
+    const mu = ROWS / 2;          // expected mean bin
+    const sigma = Math.sqrt(ROWS / 4);
+    const maxPdf = 1 / (sigma * Math.sqrt(2 * Math.PI));
+    const expectedPeak = totalBalls * maxPdf;
+    const curveScale = (BIN_H - 20) / expectedPeak;
+
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(200, 200, 80, 0.4)';
+    ctx.lineWidth = 1.5;
+    for (let x = 0; x <= W; x++) {
+      const binIdx = (x - (CENTER_X - ROWS * PEG_SPACING / 2)) / PEG_SPACING;
+      if (binIdx < 0 || binIdx > BINS) continue;
+      const pdf = Math.exp(-0.5 * ((binIdx - mu) / sigma) ** 2) / (sigma * Math.sqrt(2 * Math.PI));
+      const y = BIN_BASE_Y - pdf * expectedPeak * curveScale;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // Bin count labels
+  ctx.fillStyle = '#334';
+  ctx.font = '9px Courier New';
+  ctx.textAlign = 'center';
+  for (let b = 0; b < BINS; b++) {
+    if (bins[b] > 0) {
+      const bx = binX(b);
+      const bh = bins[b] * scale;
+      ctx.fillText(bins[b], bx, BIN_BASE_Y - bh - 4);
+    }
+  }
+
+  // Pegs
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col <= row; col++) {
+      const { x, y } = pegXY(row, col);
+      ctx.beginPath();
+      ctx.arc(x, y, PEG_R, 0, Math.PI * 2);
+      ctx.fillStyle = '#2a3a4a';
+      ctx.fill();
+      ctx.strokeStyle = '#3a5a6a';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+  }
+
+  // Active balls
+  for (const ball of activeBalls) {
+    const { x, y } = ballPosition(ball);
+    ctx.beginPath();
+    ctx.arc(x, y, BALL_R, 0, Math.PI * 2);
+    ctx.fillStyle = '#ccbbaa';
+    ctx.fill();
+    ctx.strokeStyle = '#8a9aaa';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Drop zone label
+  ctx.fillStyle = '#1a2a3a';
+  ctx.font = '9px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillText('▼', CENTER_X, TOP_PAD - 6);
+}
+
+function updateStats() {
+  document.getElementById('stat-balls').textContent = totalBalls;
+  document.getElementById('stat-peak').textContent = maxBin() === 1 ? 0 : maxBin();
+}
+
+// Speed buttons
+['slow','med','fast','inst'].forEach(s => {
+  const btn = document.getElementById(`sp-${s}`);
+  btn.addEventListener('click', () => {
+    speed = s === 'inst' ? 'instant' : s;
+    ['slow','med','fast','inst'].forEach(x => document.getElementById(`sp-${x}`).classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+document.getElementById('drop-1').addEventListener('click', () => dropBalls(1));
+document.getElementById('drop-10').addEventListener('click', () => dropBalls(10));
+document.getElementById('drop-100').addEventListener('click', () => dropBalls(100));
+document.getElementById('drop-1000').addEventListener('click', () => dropBalls(1000));
+
+document.getElementById('reset-btn').addEventListener('click', () => {
+  bins = new Array(BINS).fill(0);
+  activeBalls = [];
+  totalBalls = 0;
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+  render();
+  updateStats();
+});
+
+document.getElementById('curve-btn').addEventListener('click', function() {
+  showCurve = !showCurve;
+  this.textContent = showCurve ? 'CURVE ON' : 'CURVE OFF';
+  this.classList.toggle('active', showCurve);
+  render();
+});
+
+render();
+</script>
+</body>
+</html>

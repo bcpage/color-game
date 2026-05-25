@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00141 — Shape Factory</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508; color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px; padding: 40px 20px; user-select: none;
+  }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #223; }
+  .title { font-size: 11px; letter-spacing: 5px; color: #445; text-transform: uppercase; }
+  .subtitle { font-size: 10px; letter-spacing: 2px; color: #334; text-align: center; max-width: 400px; line-height: 2; }
+  .layout { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+  .panel { display: flex; flex-direction: column; gap: 12px; }
+  .panel-label { font-size: 10px; letter-spacing: 3px; color: #334; border-bottom: 1px solid #111120; padding-bottom: 4px; }
+  #grid-wrap {
+    display: grid; grid-template-columns: repeat(6, 40px); grid-template-rows: repeat(6, 40px);
+    gap: 3px;
+  }
+  .cell {
+    width: 40px; height: 40px; background: #0a0a12;
+    border: 1px solid #1a1a2a; cursor: pointer; transition: background 0.1s;
+  }
+  .cell.on { background: #e94560; border-color: #c03050; }
+  .cell:hover { border-color: #2a3a4a; }
+  .cell.on:hover { background: #ff5570; }
+  .btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    background: #0c0c18; border: 1px solid #1a2a3a; color: #7a9aaa;
+    font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px;
+    padding: 8px 16px; cursor: pointer;
+  }
+  button:hover { background: #10101e; border-color: #2a3a4a; }
+  button.submit-btn { border-color: #2a4a2a; color: #7acc7a; }
+  button.submit-btn:hover { background: #0a140a; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .color-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .color-swatch {
+    width: 24px; height: 24px; border: 2px solid transparent; cursor: pointer;
+  }
+  .color-swatch.selected { border-color: #8a9aaa; }
+  #preview-canvas { border: 1px solid #1a1a2a; display: block; background: #060609; }
+  .stats { font-size: 10px; letter-spacing: 2px; color: #334; line-height: 2; }
+  .stats span { color: #556; }
+  #status-msg { font-size: 10px; letter-spacing: 2px; min-height: 20px; color: #334; text-align: center; }
+  .pool-section { max-width: 420px; }
+  .pool-grid { display: flex; flex-wrap: wrap; gap: 6px; max-height: 200px; overflow-y: auto; }
+  .pool-piece { border: 1px solid #1a1a2a; background: #060609; padding: 4px; }
+  .pool-piece canvas { display: block; }
+  .note { font-size: 10px; letter-spacing: 1px; color: #223; text-align: center; line-height: 2; max-width: 400px; border-top: 1px solid #111120; padding-top: 14px; }
+</style>
+</head>
+<body data-game="00141" data-nav="matrix">
+<div class="room-id">ROOM 00141</div>
+<div class="title">Shape Factory</div>
+<div class="subtitle">
+  Draw a piece (3–6 connected cells).<br>
+  Submit it to the Wrong Tetris piece pool.<br>
+  It will fall forever.
+</div>
+
+<div class="layout">
+  <div class="panel">
+    <div class="panel-label">DRAW YOUR PIECE</div>
+    <div id="grid-wrap"></div>
+    <div class="color-row" id="color-row"></div>
+    <div class="btn-group">
+      <button id="clear-btn">CLEAR</button>
+      <button class="submit-btn" id="submit-btn" disabled>SUBMIT TO POOL</button>
+    </div>
+    <div id="status-msg"></div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-label">PREVIEW</div>
+    <canvas id="preview-canvas" width="120" height="120"></canvas>
+    <div class="stats">
+      CELLS: <span id="cell-count">0</span><br>
+      CONNECTED: <span id="connected">—</span><br>
+      POOL SIZE: <span id="pool-size">—</span><br>
+      TOTAL SUBMITTED: <span id="total-count">—</span>
+    </div>
+    <div class="panel-label" style="margin-top:4px">RECENT POOL PIECES</div>
+    <div class="pool-grid" id="pool-grid"></div>
+  </div>
+</div>
+
+<div class="note">
+  Every piece you submit will be used.<br>
+  Wrong Tetris will never win.<br>
+  Your piece will make it worse.<br>
+  This is the purpose of the factory.
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+const GRID_SIZE = 6;
+const CELL_SIZE = 40;
+let grid = Array.from({ length: GRID_SIZE }, () => new Array(GRID_SIZE).fill(false));
+let selectedColor = '#e94560';
+let mouseDown = false;
+let paintOn = null; // true=painting on, false=painting off
+
+const COLORS = ['#e94560','#cc7a3a','#5a9acc','#7acc7a','#cc44cc','#cccc44','#cc4444','#44aacc'];
+
+// ── Build Grid UI ──────────────────────────────────────────────────────────────
+const gridWrap = document.getElementById('grid-wrap');
+const cells = [];
+for (let r = 0; r < GRID_SIZE; r++) {
+  cells[r] = [];
+  for (let c = 0; c < GRID_SIZE; c++) {
+    const div = document.createElement('div');
+    div.className = 'cell';
+    div.addEventListener('mousedown', e => {
+      e.preventDefault();
+      mouseDown = true;
+      paintOn = !grid[r][c];
+      toggle(r, c, paintOn);
+    });
+    div.addEventListener('mouseenter', () => { if (mouseDown) toggle(r, c, paintOn); });
+    div.addEventListener('touchstart', e => { e.preventDefault(); toggle(r, c, !grid[r][c]); }, { passive: false });
+    gridWrap.appendChild(div);
+    cells[r][c] = div;
+  }
+}
+document.addEventListener('mouseup', () => { mouseDown = false; paintOn = null; });
+
+function toggle(r, c, on) {
+  grid[r][c] = on;
+  cells[r][c].classList.toggle('on', on);
+  updatePreview();
+}
+
+// ── Color Swatches ─────────────────────────────────────────────────────────────
+const colorRow = document.getElementById('color-row');
+COLORS.forEach(col => {
+  const sw = document.createElement('div');
+  sw.className = 'color-swatch' + (col === selectedColor ? ' selected' : '');
+  sw.style.background = col;
+  sw.addEventListener('click', () => {
+    selectedColor = col;
+    colorRow.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+    sw.classList.add('selected');
+    updatePreview();
+  });
+  colorRow.appendChild(sw);
+});
+
+// ── Preview + Stats ────────────────────────────────────────────────────────────
+const previewCanvas = document.getElementById('preview-canvas');
+const pctx = previewCanvas.getContext('2d');
+const PW = previewCanvas.width, PH = previewCanvas.height;
+
+function getActiveCells() {
+  const active = [];
+  for (let r = 0; r < GRID_SIZE; r++)
+    for (let c = 0; c < GRID_SIZE; c++)
+      if (grid[r][c]) active.push([r, c]);
+  return active;
+}
+
+function isConnected(cells) {
+  if (cells.length === 0) return false;
+  const cellSet = new Set(cells.map(([r,c]) => `${r},${c}`));
+  const visited = new Set();
+  const queue = [[cells[0][0], cells[0][1]]];
+  visited.add(`${cells[0][0]},${cells[0][1]}`);
+  while (queue.length) {
+    const [r, c] = queue.shift();
+    for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+      const k = `${r+dr},${c+dc}`;
+      if (cellSet.has(k) && !visited.has(k)) { visited.add(k); queue.push([r+dr,c+dc]); }
+    }
+  }
+  return visited.size === cells.length;
+}
+
+function updatePreview() {
+  const active = getActiveCells();
+  const n = active.length;
+  const connected = n >= 3 && isConnected(active);
+
+  document.getElementById('cell-count').textContent = n;
+  document.getElementById('connected').textContent = n === 0 ? '—' : (connected ? 'YES' : 'NO');
+  document.getElementById('submit-btn').disabled = !(n >= 3 && n <= 6 && connected);
+
+  // Draw preview
+  pctx.fillStyle = '#060609';
+  pctx.fillRect(0, 0, PW, PH);
+  if (n === 0) return;
+
+  const minR = Math.min(...active.map(([r])=>r));
+  const minC = Math.min(...active.map(([,c])=>c));
+  const maxR = Math.max(...active.map(([r])=>r));
+  const maxC = Math.max(...active.map(([,c])=>c));
+  const rows = maxR - minR + 1, cols = maxC - minC + 1;
+  const cs = Math.min(Math.floor(PW / (cols + 2)), Math.floor(PH / (rows + 2)), 28);
+  const ox = Math.round((PW - cols * cs) / 2);
+  const oy = Math.round((PH - rows * cs) / 2);
+
+  active.forEach(([r, c]) => {
+    const x = ox + (c - minC) * cs;
+    const y = oy + (r - minR) * cs;
+    pctx.fillStyle = selectedColor;
+    pctx.fillRect(x + 1, y + 1, cs - 2, cs - 2);
+    pctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    pctx.lineWidth = 1;
+    pctx.strokeRect(x + 1, y + 1, cs - 2, cs - 2);
+  });
+}
+
+// ── Clear ──────────────────────────────────────────────────────────────────────
+document.getElementById('clear-btn').addEventListener('click', () => {
+  for (let r = 0; r < GRID_SIZE; r++)
+    for (let c = 0; c < GRID_SIZE; c++)
+      toggle(r, c, false);
+});
+
+// ── Submit ─────────────────────────────────────────────────────────────────────
+document.getElementById('submit-btn').addEventListener('click', async () => {
+  const active = getActiveCells();
+  const statusEl = document.getElementById('status-msg');
+  statusEl.textContent = 'SUBMITTING…';
+  statusEl.style.color = '#334';
+  try {
+    const res = await fetch('/api/shapes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cells: active, color: selectedColor }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      statusEl.textContent = `SUBMITTED — piece #${data.count} in pool`;
+      statusEl.style.color = '#7acc7a';
+      document.getElementById('total-count').textContent = data.count;
+      // Clear grid
+      for (let r = 0; r < GRID_SIZE; r++)
+        for (let c = 0; c < GRID_SIZE; c++)
+          toggle(r, c, false);
+      loadPool();
+    } else {
+      statusEl.textContent = 'REJECTED: ' + await res.text();
+      statusEl.style.color = '#cc4444';
+    }
+  } catch (e) {
+    statusEl.textContent = 'ERROR — try again';
+    statusEl.style.color = '#cc4444';
+  }
+});
+
+// ── Pool Display ───────────────────────────────────────────────────────────────
+function drawPieceCanvas(cells, color, size = 8) {
+  const minR = Math.min(...cells.map(([r])=>r));
+  const minC = Math.min(...cells.map(([,c])=>c));
+  const maxR = Math.max(...cells.map(([r])=>r));
+  const maxC = Math.max(...cells.map(([,c])=>c));
+  const rows = maxR - minR + 1, cols = maxC - minC + 1;
+  const pw = (cols + 1) * size, ph = (rows + 1) * size;
+  const cv = document.createElement('canvas');
+  cv.width = pw; cv.height = ph;
+  const cx = cv.getContext('2d');
+  cx.fillStyle = '#060609';
+  cx.fillRect(0, 0, pw, ph);
+  cells.forEach(([r, c]) => {
+    cx.fillStyle = color;
+    cx.fillRect((c - minC + 0.5) * size, (r - minR + 0.5) * size, size - 1, size - 1);
+  });
+  return cv;
+}
+
+async function loadPool() {
+  try {
+    const res = await fetch('/api/shapes');
+    const data = await res.json();
+    document.getElementById('pool-size').textContent = data.pieces.length;
+    document.getElementById('total-count').textContent = data.count;
+    const poolGrid = document.getElementById('pool-grid');
+    poolGrid.innerHTML = '';
+    const recent = data.pieces.slice(-20).reverse();
+    recent.forEach(p => {
+      const wrap = document.createElement('div');
+      wrap.className = 'pool-piece';
+      wrap.appendChild(drawPieceCanvas(p.cells, p.color));
+      poolGrid.appendChild(wrap);
+    });
+  } catch (e) {}
+}
+
+updatePreview();
+loadPool();
+</script>
+</body>
+</html>

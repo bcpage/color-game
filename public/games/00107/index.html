@@ -119,6 +119,16 @@ const PIECES = [
   { cells: [[0,0],[1,0],[2,0],[2,1],[1,1]], color: '#c04060' },
 ];
 
+// Load custom pieces from Shape Factory (00141)
+let customPieces = [];
+fetch('/api/shapes').then(r => r.json()).then(d => { customPieces = d.pieces || []; }).catch(() => {});
+
+function allPieces() {
+  // 70% built-in, 30% custom (if any)
+  if (customPieces.length > 0 && Math.random() < 0.3) return customPieces;
+  return PIECES;
+}
+
 let grid = Array.from({length: ROWS}, () => new Array(COLS).fill(0));
 let cur = null, curX = 0, curY = 0;
 let next = null;
@@ -129,7 +139,8 @@ let lastDrop = 0;
 let animId;
 
 function newPiece(type) {
-  const p = type || PIECES[Math.floor(Math.random() * PIECES.length)];
+  const pool = allPieces();
+  const p = type || pool[Math.floor(Math.random() * pool.length)];
   // rotate randomly 0-3 times
   let cells = p.cells.map(c => [...c]);
   const rot = Math.floor(Math.random() * 4);

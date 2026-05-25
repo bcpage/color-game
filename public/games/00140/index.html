@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00140 — Visible Spectrum</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508; color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; gap: 20px;
+    padding: 40px 20px 60px;
+  }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #223; }
+  .title { font-size: 11px; letter-spacing: 5px; color: #445; text-transform: uppercase; }
+  .section { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 10px; }
+  .section-label { font-size: 10px; letter-spacing: 4px; color: #334; border-bottom: 1px solid #111120; padding-bottom: 6px; }
+  canvas { display: block; }
+  .spectrum-wrap { position: relative; }
+  #spectrum-canvas { border: 1px solid #1a1a2a; width: 100%; max-width: 560px; display: block; }
+  .slider-row {
+    display: flex; align-items: center; gap: 12px; font-size: 10px; letter-spacing: 2px; color: #334;
+  }
+  input[type=range] {
+    flex: 1; accent-color: #8a9aaa; background: transparent;
+  }
+  .wl-label { color: #7a9aaa; width: 80px; text-align: right; }
+  .wl-color-box { width: 24px; height: 16px; border: 1px solid #1a2a3a; flex-shrink: 0; }
+  .gap-section { max-width: 560px; width: 100%; }
+  .color-wheel-wrap { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  #wheel-canvas { border: 1px solid #1a1a2a; flex-shrink: 0; }
+  .wheel-info { flex: 1; min-width: 200px; }
+  .wheel-info p { font-size: 10px; letter-spacing: 1px; color: #334; line-height: 2; }
+  .non-spectral { max-width: 560px; width: 100%; }
+  .ns-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+  .ns-card {
+    border: 1px solid #1a1a2a; padding: 10px; display: flex; flex-direction: column; gap: 6px;
+  }
+  .ns-swatch { height: 40px; border: 1px solid #0a0a18; }
+  .ns-name { font-size: 10px; letter-spacing: 3px; color: #556; }
+  .ns-text { font-size: 9px; letter-spacing: 1px; color: #334; line-height: 1.8; }
+  .rgb-mixer { max-width: 560px; width: 100%; }
+  .rgb-row { display: flex; align-items: center; gap: 12px; font-size: 10px; letter-spacing: 2px; color: #334; margin-bottom: 6px; }
+  .rgb-row .lbl { width: 16px; }
+  .rgb-row input[type=range] { flex: 1; }
+  .rgb-row .val { width: 32px; text-align: right; color: #556; }
+  #rgb-result {
+    height: 60px; border: 1px solid #1a1a2a; margin-top: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; letter-spacing: 2px;
+  }
+  .spectral-tag { color: #7acc7a; }
+  .nonspectral-tag { color: #cc4444; }
+  .note {
+    font-size: 10px; letter-spacing: 1px; color: #223; text-align: center;
+    line-height: 2.2; max-width: 480px;
+    border-top: 1px solid #111120; padding-top: 16px;
+  }
+</style>
+</head>
+<body data-game="00140" data-nav="matrix">
+<div class="room-id">ROOM 00140</div>
+<div class="title">Visible Spectrum</div>
+
+<div class="section">
+  <div class="section-label">I. THE SPECTRUM — 380nm to 700nm</div>
+  <canvas id="spectrum-canvas" width="560" height="60"></canvas>
+  <div class="slider-row">
+    <span>380nm</span>
+    <input type="range" id="wl-slider" min="380" max="700" value="550" step="1">
+    <span>700nm</span>
+    <div class="wl-color-box" id="wl-color"></div>
+    <span class="wl-label" id="wl-value">550 nm</span>
+  </div>
+  <div id="wl-desc" style="font-size:10px;letter-spacing:1px;color:#334;line-height:2;"></div>
+</div>
+
+<div class="section">
+  <div class="section-label">II. THE GAP — WHERE THE SPECTRUM ENDS</div>
+  <canvas id="gap-canvas" width="560" height="80"></canvas>
+  <p style="font-size:10px;letter-spacing:1px;color:#334;line-height:2;">
+    On a line, red sits at one end and violet at the other.
+    On a color wheel, they are adjacent — and between them is magenta.
+    Magenta has no wavelength.
+    It is not in the spectrum.
+    It exists only in the space between the ends.
+  </p>
+</div>
+
+<div class="section">
+  <div class="section-label">III. NON-SPECTRAL COLORS</div>
+  <div class="ns-grid" id="ns-grid"></div>
+</div>
+
+<div class="section rgb-mixer">
+  <div class="section-label">IV. RGB MIXER — SPECTRAL VS NON-SPECTRAL</div>
+  <div class="rgb-row"><span class="lbl" style="color:#cc4444">R</span><input type="range" id="r-sl" min="0" max="255" value="100"><span class="val" id="r-val">100</span></div>
+  <div class="rgb-row"><span class="lbl" style="color:#44cc44">G</span><input type="range" id="g-sl" min="0" max="255" value="200"><span class="val" id="g-val">200</span></div>
+  <div class="rgb-row"><span class="lbl" style="color:#4488cc">B</span><input type="range" id="b-sl" min="0" max="255" value="50"><span class="val" id="b-val">50</span></div>
+  <div id="rgb-result">
+    <span id="rgb-label">—</span>
+  </div>
+</div>
+
+<div class="note">
+  The colors on this spectrum exist as wavelengths of light.<br>
+  The colors below it do not.<br>
+  Your brain invented them.<br>
+  You can see them.<br>
+  They are real.<br>
+  They just don't exist in the spectrum.<br>
+  This is considered normal.
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+// ── Wavelength → RGB (Approximation) ──────────────────────────────────────────
+// Based on Dan Bruton's algorithm, adapted for web
+function wavelengthToRGB(wl) {
+  let r, g, b, factor;
+  if (wl >= 380 && wl < 440) {
+    r = -(wl - 440) / 60; g = 0; b = 1;
+  } else if (wl >= 440 && wl < 490) {
+    r = 0; g = (wl - 440) / 50; b = 1;
+  } else if (wl >= 490 && wl < 510) {
+    r = 0; g = 1; b = -(wl - 510) / 20;
+  } else if (wl >= 510 && wl < 580) {
+    r = (wl - 510) / 70; g = 1; b = 0;
+  } else if (wl >= 580 && wl < 645) {
+    r = 1; g = -(wl - 645) / 65; b = 0;
+  } else if (wl >= 645 && wl <= 700) {
+    r = 1; g = 0; b = 0;
+  } else {
+    r = 0; g = 0; b = 0;
+  }
+  // Intensity rolloff at edges
+  if (wl >= 380 && wl < 420) factor = 0.3 + 0.7 * (wl - 380) / 40;
+  else if (wl >= 420 && wl <= 680) factor = 1.0;
+  else if (wl > 680 && wl <= 700) factor = 0.3 + 0.7 * (700 - wl) / 20;
+  else factor = 0;
+  const gamma = 0.8;
+  return {
+    r: Math.round(255 * Math.pow(r * factor, gamma)),
+    g: Math.round(255 * Math.pow(g * factor, gamma)),
+    b: Math.round(255 * Math.pow(b * factor, gamma)),
+  };
+}
+
+function wlName(wl) {
+  if (wl < 400) return `Violet-UV boundary (${wl}nm)`;
+  if (wl < 450) return `Violet (${wl}nm)`;
+  if (wl < 490) return `Blue (${wl}nm)`;
+  if (wl < 510) return `Cyan (${wl}nm)`;
+  if (wl < 560) return `Green (${wl}nm)`;
+  if (wl < 590) return `Yellow (${wl}nm)`;
+  if (wl < 625) return `Orange (${wl}nm)`;
+  return `Red (${wl}nm)`;
+}
+
+// ── Spectrum Canvas ───────────────────────────────────────────────────────────
+const specCanvas = document.getElementById('spectrum-canvas');
+const specCtx = specCanvas.getContext('2d');
+
+function drawSpectrum() {
+  const W = specCanvas.width, H = specCanvas.height;
+  for (let x = 0; x < W; x++) {
+    const wl = 380 + (x / W) * 320;
+    const { r, g, b } = wavelengthToRGB(wl);
+    specCtx.fillStyle = `rgb(${r},${g},${b})`;
+    specCtx.fillRect(x, 0, 1, H);
+  }
+  // Tick marks every 50nm
+  specCtx.fillStyle = 'rgba(0,0,0,0.6)';
+  for (let wl = 400; wl <= 700; wl += 50) {
+    const x = (wl - 380) / 320 * W;
+    specCtx.fillRect(x, H - 12, 1, 12);
+    specCtx.font = '8px Courier New';
+    specCtx.textAlign = 'center';
+    specCtx.fillText(wl, x, H - 14);
+  }
+}
+drawSpectrum();
+
+// Slider
+const slider = document.getElementById('wl-slider');
+function updateSlider() {
+  const wl = parseInt(slider.value);
+  const { r, g, b } = wavelengthToRGB(wl);
+  document.getElementById('wl-color').style.background = `rgb(${r},${g},${b})`;
+  document.getElementById('wl-value').textContent = `${wl} nm`;
+  document.getElementById('wl-desc').textContent = wlName(wl);
+  // Marker on spectrum canvas
+  drawSpectrum();
+  const x = (wl - 380) / 320 * specCanvas.width;
+  specCtx.strokeStyle = 'rgba(255,255,255,0.7)';
+  specCtx.lineWidth = 2;
+  specCtx.beginPath();
+  specCtx.moveTo(x, 0); specCtx.lineTo(x, specCanvas.height);
+  specCtx.stroke();
+}
+slider.addEventListener('input', updateSlider);
+updateSlider();
+
+// ── Gap Canvas ────────────────────────────────────────────────────────────────
+const gapCanvas = document.getElementById('gap-canvas');
+const gapCtx = gapCanvas.getContext('2d');
+function drawGap() {
+  const W = gapCanvas.width, H = gapCanvas.height;
+  gapCtx.fillStyle = '#060609';
+  gapCtx.fillRect(0, 0, W, H);
+
+  // Line of purples: left=red, right=violet, center=magenta
+  const stripY = 20, stripH = 30;
+  for (let x = 0; x < W; x++) {
+    // Blend red → magenta → violet
+    const t = x / W;
+    const r = Math.round(255 * (t < 0.5 ? 1 : 2 * (1 - t)));
+    const g = 0;
+    const b = Math.round(255 * (t < 0.5 ? 2 * t : 1));
+    gapCtx.fillStyle = `rgb(${r},${g},${b})`;
+    gapCtx.fillRect(x, stripY, 1, stripH);
+  }
+  // Labels
+  gapCtx.font = '9px Courier New';
+  gapCtx.textAlign = 'left';
+  gapCtx.fillStyle = '#556';
+  gapCtx.fillText('RED 700nm', 4, stripY + stripH + 14);
+  gapCtx.textAlign = 'center';
+  gapCtx.fillStyle = '#bb55bb';
+  gapCtx.fillText('MAGENTA — no wavelength', W / 2, stripY + stripH + 14);
+  gapCtx.textAlign = 'right';
+  gapCtx.fillStyle = '#556';
+  gapCtx.fillText('VIOLET 380nm', W - 4, stripY + stripH + 14);
+}
+drawGap();
+
+// ── Non-Spectral Cards ────────────────────────────────────────────────────────
+const nsColors = [
+  {
+    name: 'MAGENTA',
+    color: '#cc44cc',
+    text: 'No single wavelength produces this. It is the brain\'s solution to simultaneous red + violet stimulation. The visual cortex fills the gap.',
+  },
+  {
+    name: 'BROWN',
+    color: '#6b3a2a',
+    text: 'Dark orange. Never appears in a rainbow regardless of angle. Requires contrast — remove the surrounding dark and brown becomes orange.',
+  },
+  {
+    name: 'PINK',
+    color: '#cc7799',
+    text: 'Desaturated red. Requires cone cells to compare signals — there is no pink light, only bright red interpreted in context.',
+  },
+  {
+    name: 'WHITE',
+    color: '#ddddcc',
+    text: 'All wavelengths simultaneously, or a convincing combination of three. The spectrum has no white; white is all of it at once.',
+  },
+  {
+    name: 'BLACK',
+    color: '#111118',
+    text: 'Not a color of light at all. The absence of photons reaching the eye. The brain names the absence.',
+  },
+  {
+    name: 'GREY',
+    color: '#666677',
+    text: 'Reduced intensity white. All wavelengths at equal, low amplitude. There is no grey light — only context and comparison.',
+  },
+];
+
+const grid = document.getElementById('ns-grid');
+nsColors.forEach(c => {
+  const card = document.createElement('div');
+  card.className = 'ns-card';
+  card.innerHTML = `<div class="ns-swatch" style="background:${c.color}"></div>
+    <div class="ns-name">${c.name}</div>
+    <div class="ns-text">${c.text}</div>`;
+  grid.appendChild(card);
+});
+
+// ── RGB Mixer ─────────────────────────────────────────────────────────────────
+function isSpectralApprox(r, g, b) {
+  // Rough spectral test: one channel dominant, others roughly monotone
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max === 0) return null; // black
+
+  // Check if the color is approximately on the spectral locus
+  // Spectral colors: one or two adjacent channels high, others low
+  // Non-spectral: notable R+B with low G (magentas/purples)
+  const saturation = (max - min) / max;
+  if (saturation < 0.2) return null; // grey/white — not spectral
+
+  // Magenta test: R and B both significant, G suppressed
+  if (r > 60 && b > 60 && g < Math.min(r, b) * 0.5) return false;
+
+  return true;
+}
+
+function updateRGB() {
+  const r = parseInt(document.getElementById('r-sl').value);
+  const g = parseInt(document.getElementById('g-sl').value);
+  const b = parseInt(document.getElementById('b-sl').value);
+  document.getElementById('r-val').textContent = r;
+  document.getElementById('g-val').textContent = g;
+  document.getElementById('b-val').textContent = b;
+  const result = document.getElementById('rgb-result');
+  result.style.background = `rgb(${r},${g},${b})`;
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  const label = document.getElementById('rgb-label');
+  const spec = isSpectralApprox(r, g, b);
+  if (spec === null) {
+    label.textContent = 'ACHROMATIC — not a spectral hue';
+    label.className = '';
+    label.style.color = lum > 100 ? '#334' : '#556';
+  } else if (spec) {
+    label.textContent = 'POSSIBLY SPECTRAL';
+    label.className = 'spectral-tag';
+  } else {
+    label.textContent = 'NON-SPECTRAL — brain-constructed';
+    label.className = 'nonspectral-tag';
+  }
+}
+
+['r-sl','g-sl','b-sl'].forEach(id => document.getElementById(id).addEventListener('input', updateRGB));
+updateRGB();
+</script>
+</body>
+</html>

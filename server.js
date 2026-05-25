@@ -14,7 +14,8 @@ const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '0
   '00110', '00111', '00112', '00113', '00114', '00115', '00116', '00117',
   '00118', '00119', '00120', '00121', '00122', '00123', '00124', '00125',
   '00126', '00127', '00128', '00129', '00130', '00131', '00132', '00133',
-  '00134', '00135', '00136', '00137'];
+  '00134', '00135', '00136', '00137',
+  '00138', '00139', '00140', '00141'];
 
 // ─── Matrix navigation ────────────────────────────────────────────────────────
 const MATRIX_FILE = path.join(__dirname, 'data', 'matrix.json');
@@ -150,6 +151,21 @@ const GAMEOVER_FILE = path.join(__dirname, 'data', 'gameover.json');
 let gameoverLocks = {}; // { "deviceId:roomId": unlockTimestamp }
 try { gameoverLocks = JSON.parse(fs.readFileSync(GAMEOVER_FILE, 'utf8')); } catch (e) {}
 function saveGameover() { fs.writeFileSync(GAMEOVER_FILE, JSON.stringify(gameoverLocks)); }
+
+// ─── Shape Factory (00141) — user-drawn pieces for Wrong Tetris ──────────────
+// players draw custom pentomino-like pieces here
+// the pieces go into a shared pool
+// Wrong Tetris (00107) draws from that pool
+// the factory feeds the game
+// the game was always broken
+// the factory makes it more broken
+// this is intentional
+const SHAPES_DATA_DIR = path.join(__dirname, 'public', 'games', '00141', 'data');
+const SHAPES_FILE = path.join(SHAPES_DATA_DIR, 'shapes.json');
+if (!fs.existsSync(SHAPES_DATA_DIR)) fs.mkdirSync(SHAPES_DATA_DIR, { recursive: true });
+let shapesData = { pieces: [], count: 0 };
+try { shapesData = JSON.parse(fs.readFileSync(SHAPES_FILE, 'utf8')); } catch (e) {}
+function saveShapes() { fs.writeFileSync(SHAPES_FILE, JSON.stringify(shapesData)); }
 
 // ─── Alternate Hangman (00124) — one game ever ───────────────────────────────
 const HANGMAN_DATA_DIR = path.join(__dirname, 'public', 'games', '00124', 'data');
@@ -986,6 +1002,56 @@ const httpServer = http.createServer((req, res) => {
   if (pathname === '/api/source' && method === 'GET') {
     const src = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
     sendJSON(res, { source: src }); return;
+  }
+
+  // API: Shape Factory — custom pieces pool (00141)
+  if (pathname === '/api/shapes' && method === 'GET') {
+    sendJSON(res, shapesData); return;
+  }
+  if (pathname === '/api/shapes' && method === 'POST') {
+    let body = '';
+    req.on('data', d => body += d);
+    req.on('end', () => {
+      try {
+        const { cells, color } = JSON.parse(body);
+        // Validate: 3–6 cells, each [row, col], within 0–5 range, connected
+        if (!Array.isArray(cells) || cells.length < 3 || cells.length > 6) {
+          res.writeHead(400); res.end('Bad piece size'); return;
+        }
+        const seen = new Set();
+        for (const [r, c] of cells) {
+          if (r < 0 || r > 5 || c < 0 || c > 5) { res.writeHead(400); res.end('Out of bounds'); return; }
+          const k = `${r},${c}`;
+          if (seen.has(k)) { res.writeHead(400); res.end('Duplicate cell'); return; }
+          seen.add(k);
+        }
+        // Connectivity check (BFS)
+        const cellSet = new Set(cells.map(([r,c]) => `${r},${c}`));
+        const visited = new Set();
+        const queue = [[cells[0][0], cells[0][1]]];
+        visited.add(`${cells[0][0]},${cells[0][1]}`);
+        while (queue.length) {
+          const [r, c] = queue.shift();
+          for (const [dr, dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+            const k = `${r+dr},${c+dc}`;
+            if (cellSet.has(k) && !visited.has(k)) { visited.add(k); queue.push([r+dr, c+dc]); }
+          }
+        }
+        if (visited.size !== cells.length) { res.writeHead(400); res.end('Disconnected'); return; }
+        // Normalize
+        const minR = Math.min(...cells.map(([r]) => r));
+        const minC = Math.min(...cells.map(([,c]) => c));
+        const normalized = cells.map(([r,c]) => [r - minR, c - minC]);
+        const safeColor = (typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color)) ? color : '#e94560';
+        shapesData.pieces.push({ cells: normalized, color: safeColor, addedAt: Date.now() });
+        if (shapesData.pieces.length > 100) shapesData.pieces = shapesData.pieces.slice(-100);
+        shapesData.count++;
+        saveShapes();
+        broadcast({ type: 'shapes_update', count: shapesData.count, total: shapesData.pieces.length });
+        sendJSON(res, { ok: true, count: shapesData.count }); return;
+      } catch { res.writeHead(400); res.end('Bad JSON'); return; }
+    });
+    return;
   }
 
   // API: Game Over lockout (rooms 00104–00106)

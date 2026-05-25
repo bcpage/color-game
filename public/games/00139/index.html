@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00139 — Logo Turtle</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508; color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px; padding: 30px 20px; user-select: none;
+  }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #223; }
+  .title { font-size: 11px; letter-spacing: 5px; color: #445; text-transform: uppercase; }
+  .main-layout {
+    display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;
+    justify-content: center;
+  }
+  #canvas-wrap {
+    border: 1px solid #1a1a2a; background: #060609; flex-shrink: 0;
+  }
+  canvas { display: block; }
+  .sidebar {
+    display: flex; flex-direction: column; gap: 10px; width: 220px;
+  }
+  .editor-wrap {
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .editor-label { font-size: 10px; letter-spacing: 3px; color: #334; }
+  textarea {
+    background: #080810; border: 1px solid #1a2a3a; color: #7acc7a;
+    font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.6;
+    padding: 8px; resize: vertical; outline: none; width: 220px;
+    min-height: 180px;
+  }
+  textarea:focus { border-color: #2a4a2a; }
+  .btn-row { display: flex; gap: 6px; }
+  button {
+    background: #0c0c18; border: 1px solid #1a2a3a; color: #7a9aaa;
+    font-family: 'Courier New', monospace; font-size: 10px; letter-spacing: 2px;
+    padding: 6px 10px; cursor: pointer; flex: 1;
+  }
+  button:hover { background: #10101e; border-color: #2a3a4a; }
+  button.run-btn { border-color: #2a4a2a; color: #7acc7a; }
+  button.run-btn:hover { background: #0a140a; }
+  .examples { display: flex; flex-direction: column; gap: 4px; }
+  .examples-label { font-size: 10px; letter-spacing: 3px; color: #334; }
+  .ex-btn {
+    background: #080810; border: 1px solid #141424; color: #445;
+    font-size: 10px; letter-spacing: 1px; padding: 5px 8px; text-align: left;
+    cursor: pointer; flex: none;
+  }
+  .ex-btn:hover { background: #0c0c1c; color: #667; border-color: #1a2a3a; }
+  .output {
+    background: #060608; border: 1px solid #1a1a2a; font-size: 10px;
+    letter-spacing: 1px; color: #334; padding: 6px 8px; min-height: 40px;
+    max-height: 80px; overflow-y: auto; line-height: 1.8;
+  }
+  .ref {
+    font-size: 9px; letter-spacing: 1px; color: #223; line-height: 2;
+    border-top: 1px solid #111120; padding-top: 6px;
+  }
+  .ref b { color: #334; }
+  .note {
+    font-size: 10px; letter-spacing: 1px; color: #223; text-align: center;
+    line-height: 2;
+  }
+</style>
+</head>
+<body data-game="00139" data-nav="matrix">
+<div class="room-id">ROOM 00139</div>
+<div class="title">Logo Turtle</div>
+
+<div class="main-layout">
+  <div id="canvas-wrap">
+    <canvas id="c" width="420" height="380"></canvas>
+  </div>
+
+  <div class="sidebar">
+    <div class="editor-wrap">
+      <div class="editor-label">PROGRAM</div>
+      <textarea id="code" spellcheck="false">REPEAT 4 [FD 80 RT 90]</textarea>
+      <div class="btn-row">
+        <button class="run-btn" id="run-btn">RUN ▶</button>
+        <button id="clear-btn">CLEAR</button>
+      </div>
+    </div>
+    <div id="output" class="output">ready.</div>
+    <div class="examples">
+      <div class="examples-label">EXAMPLES</div>
+      <button class="ex-btn" data-code="REPEAT 4 [FD 80 RT 90]">Square</button>
+      <button class="ex-btn" data-code="REPEAT 6 [FD 70 RT 60]">Hexagon</button>
+      <button class="ex-btn" data-code="REPEAT 36 [FD 10 RT 10]">Circle</button>
+      <button class="ex-btn" data-code="REPEAT 8 [FD 80 RT 135]">Star</button>
+      <button class="ex-btn" data-code="REPEAT 5 [FD 100 RT 144]">Pentagram</button>
+      <button class="ex-btn" data-code="TO FERN :SIZE\n  IF :SIZE < 3 [STOP]\n  FD :SIZE\n  RT 25 FERN :SIZE * 0.7\n  LT 50 FERN :SIZE * 0.7\n  RT 25\n  BK :SIZE\nEND\nFERN 60">Fern</button>
+      <button class="ex-btn" data-code="TO SPIRAL :N :SIZE\n  IF :N = 0 [STOP]\n  FD :SIZE RT 91\n  SPIRAL :N - 1 :SIZE + 2\nEND\nSPIRAL 40 5">Spiral</button>
+      <button class="ex-btn" data-code="TO TREE :SIZE\n  IF :SIZE < 5 [STOP]\n  FD :SIZE\n  LT 30 TREE :SIZE * 0.6\n  RT 60 TREE :SIZE * 0.6\n  LT 30\n  BK :SIZE\nEND\nRT 90 BK 80 LT 90\nTREE 70">Tree</button>
+    </div>
+    <div class="ref">
+      <b>FD/BK</b> n &nbsp; <b>RT/LT</b> n<br>
+      <b>PU/PD</b> &nbsp; <b>HOME</b> &nbsp; <b>CS</b><br>
+      <b>SETCOLOR</b> r g b &nbsp; <b>SETPENSIZE</b> n<br>
+      <b>REPEAT</b> n [cmds]<br>
+      <b>IF</b> cond [cmds]<br>
+      <b>TO</b> name :args … <b>END</b>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  A turtle is waiting at the origin.<br>
+  It will go wherever you tell it.<br>
+  It has been waiting since 1967.<br>
+  It is very patient.
+</div>
+
+<script src="/shared/matrix-nav.js"></script>
+<script>
+// ── Canvas + Turtle State ──────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+let turtle = { x: W/2, y: H/2, angle: -90, pen: true, penColor: '#7acc7a', penSize: 1.5 };
+let procedures = {};
+
+function resetCanvas() {
+  ctx.fillStyle = '#060609';
+  ctx.fillRect(0, 0, W, H);
+  // Grid dots
+  ctx.fillStyle = '#0d0d18';
+  for (let x = 20; x < W; x += 40) for (let y = 20; y < H; y += 40) {
+    ctx.fillRect(x, y, 1, 1);
+  }
+}
+
+function drawTurtle() {
+  const { x, y, angle } = turtle;
+  const rad = (angle * Math.PI) / 180;
+  const size = 8;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rad + Math.PI / 2);
+  ctx.beginPath();
+  ctx.moveTo(0, -size);
+  ctx.lineTo(-size * 0.6, size * 0.6);
+  ctx.lineTo(0, size * 0.3);
+  ctx.lineTo(size * 0.6, size * 0.6);
+  ctx.closePath();
+  ctx.fillStyle = '#cc9944';
+  ctx.fill();
+  ctx.strokeStyle = '#8a6a2a';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function turtleMove(dist) {
+  const rad = (turtle.angle * Math.PI) / 180;
+  const nx = turtle.x + dist * Math.cos(rad);
+  const ny = turtle.y + dist * Math.sin(rad);
+  if (turtle.pen) {
+    ctx.beginPath();
+    ctx.strokeStyle = turtle.penColor;
+    ctx.lineWidth = turtle.penSize;
+    ctx.moveTo(turtle.x, turtle.y);
+    ctx.lineTo(nx, ny);
+    ctx.stroke();
+  }
+  turtle.x = nx; turtle.y = ny;
+}
+
+// ── Logo Interpreter ───────────────────────────────────────────────────────────
+function tokenize(src) {
+  // Replace brackets with tokens
+  src = src.replace(/\[/g, ' [ ').replace(/\]/g, ' ] ');
+  return src.split(/\s+/).filter(t => t.length > 0);
+}
+
+function parseNum(val, env) {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string' && val.startsWith(':')) {
+    const k = val.slice(1).toUpperCase();
+    if (k in env) return parseFloat(env[k]);
+  }
+  const n = parseFloat(val);
+  if (isNaN(n)) throw new Error(`Expected number: ${val}`);
+  return n;
+}
+
+function evalExpr(tokens, pos, env) {
+  // Very simple expression: handles N, :var, N OP N, :var OP N
+  let val = resolveAtom(tokens, pos, env);
+  pos = val.pos;
+  // Check for operator
+  if (pos < tokens.length) {
+    const op = tokens[pos];
+    if (['+','-','*','/'].includes(op)) {
+      const right = resolveAtom(tokens, pos + 1, env);
+      let result;
+      const lv = val.val, rv = right.val;
+      if (op === '+') result = lv + rv;
+      else if (op === '-') result = lv - rv;
+      else if (op === '*') result = lv * rv;
+      else if (op === '/') result = rv !== 0 ? lv / rv : 0;
+      return { val: result, pos: right.pos };
+    }
+  }
+  return val;
+}
+
+function resolveAtom(tokens, pos, env) {
+  const t = tokens[pos];
+  if (t.startsWith(':')) {
+    const k = t.slice(1).toUpperCase();
+    const v = parseFloat(k in env ? env[k] : 0);
+    return { val: v, pos: pos + 1 };
+  }
+  return { val: parseFloat(t), pos: pos + 1 };
+}
+
+// Check equality/comparison for IF
+function evalCond(tokens, pos, env) {
+  const left = evalExpr(tokens, pos, env);
+  pos = left.pos;
+  const op = tokens[pos] || '';
+  const right = evalExpr(tokens, pos + 1, env);
+  pos = right.pos;
+  let result;
+  if (op === '=')  result = left.val === right.val;
+  else if (op === '<') result = left.val < right.val;
+  else if (op === '>') result = left.val > right.val;
+  else result = !!left.val;
+  return { val: result, pos };
+}
+
+function collectBlock(tokens, pos) {
+  // tokens[pos] should be '['
+  if (tokens[pos] !== '[') throw new Error('Expected [');
+  let depth = 1; pos++;
+  const block = [];
+  while (pos < tokens.length && depth > 0) {
+    if (tokens[pos] === '[') depth++;
+    if (tokens[pos] === ']') { depth--; if (depth === 0) { pos++; break; } }
+    if (depth > 0) block.push(tokens[pos]);
+    pos++;
+  }
+  return { block, pos };
+}
+
+let stepCount = 0;
+const MAX_STEPS = 50000;
+
+function execute(tokens, pos, env) {
+  while (pos < tokens.length) {
+    if (++stepCount > MAX_STEPS) throw new Error('Step limit reached');
+    const cmd = tokens[pos].toUpperCase(); pos++;
+    if (cmd === 'FD' || cmd === 'FORWARD') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos;
+      turtleMove(e.val);
+    } else if (cmd === 'BK' || cmd === 'BACK' || cmd === 'BACKWARD') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos;
+      turtleMove(-e.val);
+    } else if (cmd === 'RT' || cmd === 'RIGHT') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos;
+      turtle.angle += e.val;
+    } else if (cmd === 'LT' || cmd === 'LEFT') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos;
+      turtle.angle -= e.val;
+    } else if (cmd === 'PU' || cmd === 'PENUP') {
+      turtle.pen = false;
+    } else if (cmd === 'PD' || cmd === 'PENDOWN') {
+      turtle.pen = true;
+    } else if (cmd === 'HOME') {
+      turtle.x = W/2; turtle.y = H/2; turtle.angle = -90;
+    } else if (cmd === 'CS' || cmd === 'CLEARSCREEN') {
+      resetCanvas(); turtle.x = W/2; turtle.y = H/2; turtle.angle = -90;
+    } else if (cmd === 'SETCOLOR' || cmd === 'SETPENCOLOR') {
+      const r = evalExpr(tokens, pos, env); pos = r.pos;
+      const g = evalExpr(tokens, pos, env); pos = g.pos;
+      const b = evalExpr(tokens, pos, env); pos = b.pos;
+      turtle.penColor = `rgb(${Math.round(r.val)},${Math.round(g.val)},${Math.round(b.val)})`;
+    } else if (cmd === 'SETPENSIZE') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos;
+      turtle.penSize = Math.max(0.5, e.val);
+    } else if (cmd === 'REPEAT') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos;
+      const { block, pos: p2 } = collectBlock(tokens, pos); pos = p2;
+      const n = Math.round(e.val);
+      for (let i = 0; i < n; i++) {
+        pos = execute(block, 0, env);
+        if (pos === -1) return -1; // STOP
+      }
+      pos = 0; // reset for outer loop
+      // Actually we need to continue from p2
+      pos = p2;
+    } else if (cmd === 'IF') {
+      const cond = evalCond(tokens, pos, env); pos = cond.pos;
+      const { block, pos: p2 } = collectBlock(tokens, pos); pos = p2;
+      if (cond.val) {
+        const r = execute(block, 0, env);
+        if (r === -1) return -1;
+      }
+    } else if (cmd === 'TO') {
+      // Define procedure
+      const name = tokens[pos].toUpperCase(); pos++;
+      const args = [];
+      while (pos < tokens.length && tokens[pos].startsWith(':')) {
+        args.push(tokens[pos].slice(1).toUpperCase()); pos++;
+      }
+      const body = [];
+      while (pos < tokens.length && tokens[pos].toUpperCase() !== 'END') {
+        body.push(tokens[pos]); pos++;
+      }
+      if (tokens[pos]?.toUpperCase() === 'END') pos++;
+      procedures[name] = { args, body };
+    } else if (cmd === 'STOP') {
+      return -1;
+    } else if (procedures[cmd]) {
+      const proc = procedures[cmd];
+      const localEnv = { ...env };
+      for (let i = 0; i < proc.args.length; i++) {
+        const e = evalExpr(tokens, pos, env); pos = e.pos;
+        localEnv[proc.args[i]] = e.val;
+      }
+      const r = execute(proc.body, 0, localEnv);
+      if (r === -1) {} // STOP in sub = just return from sub
+    } else if (cmd === '') {
+      // skip
+    } else {
+      throw new Error(`Unknown command: ${cmd}`);
+    }
+  }
+  return pos;
+}
+
+// Repeat needs special handling — fix the return value
+function runProgram(src) {
+  procedures = {};
+  stepCount = 0;
+  try {
+    const tokens = tokenize(src);
+    execute2(tokens, 0, {});
+    return 'ok';
+  } catch (e) {
+    return e.message;
+  }
+}
+
+// execute2 is the same as execute but handles REPEAT continuation correctly
+function execute2(tokens, startPos, env) {
+  let pos = startPos;
+  while (pos < tokens.length) {
+    if (++stepCount > MAX_STEPS) throw new Error('Step limit reached (50000)');
+    const cmd = tokens[pos].toUpperCase(); pos++;
+    if (cmd === 'FD' || cmd === 'FORWARD') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos; turtleMove(e.val);
+    } else if (cmd === 'BK' || cmd === 'BACK' || cmd === 'BACKWARD') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos; turtleMove(-e.val);
+    } else if (cmd === 'RT' || cmd === 'RIGHT') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos; turtle.angle += e.val;
+    } else if (cmd === 'LT' || cmd === 'LEFT') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos; turtle.angle -= e.val;
+    } else if (cmd === 'PU' || cmd === 'PENUP') {
+      turtle.pen = false;
+    } else if (cmd === 'PD' || cmd === 'PENDOWN') {
+      turtle.pen = true;
+    } else if (cmd === 'HOME') {
+      turtle.x = W/2; turtle.y = H/2; turtle.angle = -90;
+    } else if (cmd === 'CS' || cmd === 'CLEARSCREEN') {
+      resetCanvas(); turtle.x = W/2; turtle.y = H/2; turtle.angle = -90;
+    } else if (cmd === 'SETCOLOR' || cmd === 'SETPENCOLOR') {
+      const r = evalExpr(tokens, pos, env); pos = r.pos;
+      const g = evalExpr(tokens, pos, env); pos = g.pos;
+      const b = evalExpr(tokens, pos, env); pos = b.pos;
+      turtle.penColor = `rgb(${Math.round(r.val)},${Math.round(g.val)},${Math.round(b.val)})`;
+    } else if (cmd === 'SETPENSIZE') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos; turtle.penSize = Math.max(0.5, e.val);
+    } else if (cmd === 'REPEAT') {
+      const e = evalExpr(tokens, pos, env); pos = e.pos;
+      const { block, pos: p2 } = collectBlock(tokens, pos); pos = p2;
+      const n = Math.round(e.val);
+      for (let i = 0; i < n; i++) execute2(block, 0, env);
+    } else if (cmd === 'IF') {
+      const cond = evalCond(tokens, pos, env); pos = cond.pos;
+      const { block, pos: p2 } = collectBlock(tokens, pos); pos = p2;
+      if (cond.val) execute2(block, 0, env);
+    } else if (cmd === 'TO') {
+      const name = tokens[pos].toUpperCase(); pos++;
+      const args = [];
+      while (pos < tokens.length && tokens[pos].startsWith(':')) {
+        args.push(tokens[pos].slice(1).toUpperCase()); pos++;
+      }
+      const body = [];
+      while (pos < tokens.length && tokens[pos].toUpperCase() !== 'END') {
+        body.push(tokens[pos]); pos++;
+      }
+      if (tokens[pos]?.toUpperCase() === 'END') pos++;
+      procedures[name] = { args, body };
+    } else if (cmd === 'STOP') {
+      return;
+    } else if (procedures[cmd]) {
+      const proc = procedures[cmd];
+      const localEnv = { ...env };
+      for (let i = 0; i < proc.args.length; i++) {
+        const e = evalExpr(tokens, pos, env); pos = e.pos;
+        localEnv[proc.args[i]] = e.val;
+      }
+      execute2(proc.body, 0, localEnv);
+    } else if (!cmd || cmd === '') {
+      // skip
+    } else {
+      throw new Error(`Unknown: ${cmd}`);
+    }
+  }
+}
+
+// ── UI ─────────────────────────────────────────────────────────────────────────
+function run() {
+  const src = document.getElementById('code').value.trim();
+  resetCanvas();
+  turtle = { x: W/2, y: H/2, angle: -90, pen: true, penColor: '#7acc7a', penSize: 1.5 };
+  procedures = {};
+  stepCount = 0;
+  const out = document.getElementById('output');
+  try {
+    execute2(tokenize(src), 0, {});
+    out.textContent = `done. ${stepCount} steps.`;
+    out.style.color = '#334';
+  } catch (e) {
+    out.textContent = `error: ${e.message}`;
+    out.style.color = '#cc4444';
+  }
+  drawTurtle();
+}
+
+document.getElementById('run-btn').addEventListener('click', run);
+document.getElementById('clear-btn').addEventListener('click', () => {
+  resetCanvas();
+  turtle = { x: W/2, y: H/2, angle: -90, pen: true, penColor: '#7acc7a', penSize: 1.5 };
+  drawTurtle();
+  document.getElementById('output').textContent = 'cleared.';
+  document.getElementById('output').style.color = '#334';
+});
+
+document.querySelectorAll('.ex-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('code').value = btn.dataset.code.replace(/\\n/g, '\n');
+    run();
+  });
+});
+
+// Ctrl+Enter to run
+document.getElementById('code').addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); run(); }
+});
+
+resetCanvas();
+drawTurtle();
+</script>
+</body>
+</html>
