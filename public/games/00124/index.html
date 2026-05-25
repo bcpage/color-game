@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>00124 — Alternate Hangman</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050508;
+    color: #8a9aaa;
+    font-family: 'Courier New', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 40px 20px;
+  }
+  .room-id { font-size: 10px; letter-spacing: 5px; color: #223; }
+  .title { font-size: 11px; letter-spacing: 5px; color: #445; text-transform: uppercase; }
+  .card {
+    width: 100%;
+    max-width: 520px;
+    border: 1px solid #1a1a2a;
+    background: #080810;
+  }
+  .card-header {
+    border-bottom: 1px solid #1a1a2a;
+    padding: 12px 20px;
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: #334;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+  }
+  .card-body { padding: 24px 20px; }
+
+  /* Gallows ASCII art */
+  #gallows {
+    font-size: 13px;
+    line-height: 1.3;
+    color: #556;
+    white-space: pre;
+    text-align: center;
+    margin-bottom: 24px;
+    min-height: 120px;
+  }
+  #gallows .figure { color: #8a9aaa; }
+  #gallows .wrong { color: #c04040; }
+
+  /* Word display */
+  #word-display {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    min-height: 40px;
+    align-items: flex-end;
+  }
+  .letter-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .letter-char {
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: #9ab4c4;
+    font-weight: bold;
+    min-width: 18px;
+    text-align: center;
+    min-height: 28px;
+  }
+  .letter-line {
+    width: 18px;
+    height: 1px;
+    background: #334;
+  }
+  .letter-char.revealed { color: #9ab4c4; }
+  .letter-char.correct-new { color: #55cc88; }
+
+  /* Wrong guesses */
+  #wrong-display {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #334;
+    text-align: center;
+    margin-bottom: 20px;
+    min-height: 16px;
+  }
+  #wrong-display .wrong-letter { color: #c04040; }
+
+  /* Keyboard */
+  #keyboard {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .key-row { display: flex; gap: 5px; }
+  .key {
+    width: 34px;
+    height: 34px;
+    border: 1px solid #1a1a2a;
+    background: #0c0c18;
+    color: #556;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .key:hover:not(.used) { background: #141428; color: #7a9aaa; }
+  .key.guessed-correct { background: #0a2218; color: #55cc88; border-color: #1a4a30; cursor: default; }
+  .key.guessed-wrong { background: #180808; color: #552222; border-color: #3a1010; cursor: default; }
+  .key.used { cursor: default; }
+
+  /* Status messages */
+  #status-msg {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #445;
+    text-align: center;
+    min-height: 18px;
+  }
+  #status-msg.win { color: #55cc88; }
+  #status-msg.lose { color: #c04040; }
+
+  /* End state */
+  #end-overlay {
+    display: none;
+    text-align: center;
+    padding: 8px 0;
+  }
+  #end-overlay.active { display: block; }
+  #end-word {
+    font-size: 24px;
+    letter-spacing: 6px;
+    margin-bottom: 12px;
+    color: #7a9aaa;
+  }
+  #end-note {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #334;
+    line-height: 1.8;
+  }
+
+  .footnote {
+    font-size: 10px;
+    color: #223;
+    letter-spacing: 1px;
+    padding: 14px 20px;
+    border-top: 1px solid #0e0e18;
+    line-height: 1.8;
+  }
+
+  #loading { color: #334; font-size: 11px; letter-spacing: 3px; }
+</style>
+</head>
+<body data-game="00124" data-nav="matrix">
+
+<div class="room-id">ROOM 00124</div>
+<div class="title">Alternate Hangman — One Life</div>
+
+<div class="card">
+  <div class="card-header">
+    <span>Global Game — All Players Share One Attempt</span>
+    <span id="wrong-count">— / 6</span>
+  </div>
+  <div class="card-body">
+    <div id="loading">LOADING...</div>
+
+    <div id="game-ui" style="display:none">
+      <div id="gallows"></div>
+
+      <div id="word-display"></div>
+
+      <div id="wrong-display">WRONG: <span id="wrong-letters"></span></div>
+
+      <div id="keyboard">
+        <div class="key-row" id="row1"></div>
+        <div class="key-row" id="row2"></div>
+        <div class="key-row" id="row3"></div>
+      </div>
+
+      <div id="status-msg"></div>
+
+      <div id="end-overlay">
+        <div id="end-word"></div>
+        <div id="end-note"></div>
+      </div>
+    </div>
+  </div>
+  <div class="footnote" id="footnote">One word. One game. When it ends, it is over permanently.</div>
+</div>
+
+<script>
+const ROWS = [
+  'QWERTYUIOP',
+  'ASDFGHJKL',
+  'ZXCVBNM'
+];
+
+const GALLOWS = [
+  // 0 wrong
+  `  +---+
+  |   |
+      |
+      |
+      |
+      |
+=========`,
+  // 1 wrong - head
+  `  +---+
+  |   |
+  O   |
+      |
+      |
+      |
+=========`,
+  // 2 wrong - head + body
+  `  +---+
+  |   |
+  O   |
+  |   |
+      |
+      |
+=========`,
+  // 3 wrong - head + body + one arm
+  `  +---+
+  |   |
+  O   |
+ /|   |
+      |
+      |
+=========`,
+  // 4 wrong - head + body + two arms
+  `  +---+
+  |   |
+  O   |
+ /|\\  |
+      |
+      |
+=========`,
+  // 5 wrong - head + body + two arms + one leg
+  `  +---+
+  |   |
+  O   |
+ /|\\  |
+ /    |
+      |
+=========`,
+  // 6 wrong - full figure
+  `  +---+
+  |   |
+  O   |
+ /|\\  |
+ / \\  |
+      |
+=========`,
+];
+
+let gameState = null;
+let gameOver = false;
+
+function renderGallows(wrong) {
+  const el = document.getElementById('gallows');
+  const art = GALLOWS[Math.min(wrong, 6)] || GALLOWS[6];
+  if (wrong >= 6) {
+    el.innerHTML = `<span class="wrong">${art}</span>`;
+  } else {
+    el.textContent = art;
+  }
+}
+
+function renderWord(masked, guessed, newLetter) {
+  const wd = document.getElementById('word-display');
+  wd.innerHTML = '';
+  for (const ch of masked) {
+    const slot = document.createElement('div');
+    slot.className = 'letter-slot';
+    const lc = document.createElement('div');
+    lc.className = 'letter-char';
+    if (ch !== '_') {
+      lc.textContent = ch;
+      lc.classList.add(newLetter && ch === newLetter ? 'correct-new' : 'revealed');
+    }
+    const ll = document.createElement('div');
+    ll.className = 'letter-line';
+    slot.appendChild(lc);
+    slot.appendChild(ll);
+    wd.appendChild(slot);
+  }
+}
+
+function renderWrong(guessed, masked) {
+  const wrongLetters = guessed.filter(g => !masked.includes(g));
+  const el = document.getElementById('wrong-letters');
+  el.innerHTML = wrongLetters.map(l => `<span class="wrong-letter">${l}</span>`).join(' ');
+  document.getElementById('wrong-count').textContent = `${wrongLetters.length} / 6`;
+}
+
+function buildKeyboard(guessed, masked) {
+  ROWS.forEach((row, ri) => {
+    const rowEl = document.getElementById(`row${ri + 1}`);
+    rowEl.innerHTML = '';
+    for (const ch of row) {
+      const btn = document.createElement('button');
+      btn.className = 'key';
+      btn.textContent = ch;
+      btn.dataset.letter = ch;
+      if (guessed.includes(ch)) {
+        btn.classList.add('used');
+        if (masked.includes(ch)) {
+          btn.classList.add('guessed-correct');
+        } else {
+          btn.classList.add('guessed-wrong');
+        }
+      } else if (!gameOver) {
+        btn.addEventListener('click', () => guess(ch));
+      }
+      rowEl.appendChild(btn);
+    }
+  });
+}
+
+function showEnd(status, word) {
+  gameOver = true;
+  const overlay = document.getElementById('end-overlay');
+  const statusMsg = document.getElementById('status-msg');
+  const endWord = document.getElementById('end-word');
+  const endNote = document.getElementById('end-note');
+  const footnote = document.getElementById('footnote');
+
+  overlay.classList.add('active');
+  endWord.textContent = word;
+
+  if (status === 'won') {
+    statusMsg.textContent = 'WORD RECOVERED';
+    statusMsg.className = 'win';
+    endNote.textContent = 'The game has concluded.\nThe word was found.\nThis game will not be played again.';
+    footnote.textContent = 'The game ended in recovery. The word was ' + word + '. This outcome is permanent.';
+  } else {
+    statusMsg.textContent = 'TERMINAL FAILURE';
+    statusMsg.className = 'lose';
+    endNote.textContent = 'The game has concluded.\nThe word was not found.\nThis game will not be played again.';
+    footnote.textContent = 'The game ended in failure. The word was ' + word + '. This outcome is permanent.';
+  }
+}
+
+function applyState(data, newLetter) {
+  gameState = data;
+  const { masked, guessed, wrong, status, word } = data;
+  const wrongCount = guessed.filter(g => !masked.replace(/_/g, '').includes(g) || wrong > 0)
+    ? wrong
+    : 0;
+
+  renderGallows(wrong);
+  renderWord(masked, guessed, newLetter || null);
+  renderWrong(guessed, masked);
+  buildKeyboard(guessed, masked);
+  document.getElementById('wrong-count').textContent = `${wrong} / 6`;
+
+  if (status !== 'playing') {
+    showEnd(status, word || masked);
+  } else {
+    document.getElementById('status-msg').textContent = '';
+  }
+}
+
+async function loadState() {
+  try {
+    const r = await fetch('/api/hangman');
+    const data = await r.json();
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('game-ui').style.display = 'block';
+
+    if (data.status !== 'playing') {
+      gameOver = true;
+    }
+    applyState(data, null);
+  } catch (e) {
+    document.getElementById('loading').textContent = 'CONNECTION ERROR';
+  }
+}
+
+async function guess(letter) {
+  if (gameOver) return;
+  const btn = document.querySelector(`.key[data-letter="${letter}"]`);
+  if (btn) btn.style.opacity = '0.5';
+
+  try {
+    const r = await fetch('/api/hangman/guess', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ letter })
+    });
+    const data = await r.json();
+    applyState(data, letter);
+  } catch (e) {
+    if (btn) btn.style.opacity = '';
+  }
+}
+
+// Keyboard input
+document.addEventListener('keydown', e => {
+  if (gameOver) return;
+  const ch = e.key.toUpperCase();
+  if (/^[A-Z]$/.test(ch)) {
+    const btn = document.querySelector(`.key[data-letter="${ch}"]`);
+    if (btn && !btn.classList.contains('used')) {
+      guess(ch);
+    }
+  }
+});
+
+loadState();
+</script>
+
+<script src="/shared/matrix-nav.js"></script>
+</body>
+</html>
