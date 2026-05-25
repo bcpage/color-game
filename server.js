@@ -11,7 +11,8 @@ const GAMES = ['00001', '00002', '00003', '00004', '00005', '00006', '00007', '0
   '00086', '00087', '00088', '00089', '00090', '00091', '00092', '00093',
   '00094', '00095', '00096', '00097', '00098', '00099', '00100', '00101',
   '00102', '00103', '00104', '00105', '00106', '00107', '00108', '00109',
-  '00110', '00111', '00112', '00113', '00114', '00115', '00116', '00117'];
+  '00110', '00111', '00112', '00113', '00114', '00115', '00116', '00117',
+  '00118', '00119', '00120', '00121', '00122', '00123', '00124', '00125'];
 
 // ─── Matrix navigation ────────────────────────────────────────────────────────
 const MATRIX_FILE = path.join(__dirname, 'data', 'matrix.json');
@@ -147,6 +148,28 @@ const GAMEOVER_FILE = path.join(__dirname, 'data', 'gameover.json');
 let gameoverLocks = {}; // { "deviceId:roomId": unlockTimestamp }
 try { gameoverLocks = JSON.parse(fs.readFileSync(GAMEOVER_FILE, 'utf8')); } catch (e) {}
 function saveGameover() { fs.writeFileSync(GAMEOVER_FILE, JSON.stringify(gameoverLocks)); }
+
+// ─── Alternate Hangman (00124) — one game ever ───────────────────────────────
+const HANGMAN_DATA_DIR = path.join(__dirname, 'public', 'games', '00124', 'data');
+const HANGMAN_FILE = path.join(HANGMAN_DATA_DIR, 'hangman.json');
+if (!fs.existsSync(HANGMAN_DATA_DIR)) fs.mkdirSync(HANGMAN_DATA_DIR, { recursive: true });
+const HANGMAN_WORDS = ['LABYRINTH','THRESHOLD','ENIGMATIC','SOLIPSISM','EPHEMERAL',
+  'CLANDESTINE','ANOMALOUS','PERPETUAL','RECURSIVE','OBLIVION','PARADOX','FRACTURE',
+  'TERMINUS','CATALYST','RESIDUAL','ABERRANT','PHANTOM','CORRIDOR'];
+let hangmanGame = null;
+try { hangmanGame = JSON.parse(fs.readFileSync(HANGMAN_FILE, 'utf8')); } catch(e) {}
+if (!hangmanGame) {
+  const word = HANGMAN_WORDS[Math.floor(Math.random() * HANGMAN_WORDS.length)];
+  hangmanGame = { word, guessed: [], wrong: 0, status: 'playing', startedAt: Date.now() };
+  fs.writeFileSync(HANGMAN_FILE, JSON.stringify(hangmanGame));
+}
+function saveHangman() { fs.writeFileSync(HANGMAN_FILE, JSON.stringify(hangmanGame)); }
+function buildHangmanResponse() {
+  const { word, guessed, wrong, status } = hangmanGame;
+  const masked = word.split('').map(c => guessed.includes(c) ? c : '_').join('');
+  return { masked, guessed, wrong, status, length: word.length,
+    word: status !== 'playing' ? word : undefined };
+}
 
 function getDeviceId(req) {
   const cookie = req.headers.cookie || '';
@@ -843,6 +866,40 @@ const httpServer = http.createServer((req, res) => {
       }
     });
     sendJSON(res, { histogram: hist }); return;
+  }
+
+  // API: Alternate Hangman — one game ever
+  if (pathname === '/api/hangman' && method === 'GET') {
+    const { word, guessed, wrong, status } = hangmanGame;
+    const masked = word.split('').map(c => guessed.includes(c) ? c : '_').join('');
+    sendJSON(res, { masked, guessed, wrong, status, length: word.length,
+      word: status !== 'playing' ? word : undefined }); return;
+  }
+  if (pathname === '/api/hangman/guess' && method === 'POST') {
+    let body = '';
+    req.on('data', c => body += c);
+    req.on('end', () => {
+      try {
+        if (hangmanGame.status !== 'playing') { sendJSON(res, hangmanGame); return; }
+        const { letter } = JSON.parse(body);
+        const l = String(letter || '').toUpperCase().trim();
+        if (!l.match(/^[A-Z]$/)) { res.writeHead(400); res.end(); return; }
+        if (hangmanGame.guessed.includes(l)) { sendJSON(res, buildHangmanResponse()); return; }
+        hangmanGame.guessed.push(l);
+        if (!hangmanGame.word.includes(l)) hangmanGame.wrong++;
+        const allRevealed = hangmanGame.word.split('').every(c => hangmanGame.guessed.includes(c));
+        if (allRevealed) hangmanGame.status = 'won';
+        else if (hangmanGame.wrong >= 6) hangmanGame.status = 'lost';
+        saveHangman();
+        sendJSON(res, buildHangmanResponse());
+      } catch(e) { res.writeHead(400); res.end(); }
+    }); return;
+  }
+
+  // API: Source code (room 00125)
+  if (pathname === '/api/source' && method === 'GET') {
+    const src = fs.readFileSync(path.join(__dirname, 'server.js'), 'utf8');
+    sendJSON(res, { source: src }); return;
   }
 
   // API: Game Over lockout (rooms 00104–00106)
